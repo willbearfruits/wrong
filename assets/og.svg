@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="scan" width="2" height="3" patternUnits="userSpaceOnUse">
+      <rect width="2" height="1" fill="rgba(255,255,255,0.020)"/>
+    </pattern>
+    <style>
+      .w { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 900; font-size: 220px; letter-spacing: -8px; }
+      .tag { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 400; font-size: 26px; letter-spacing: 0.5px; }
+      .meta { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 500; font-size: 16px; letter-spacing: 0.6px; }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+
+  <!-- horizontal tear band midway -->
+  <rect x="0" y="312" width="1200" height="6" fill="#0e0e0e"/>
+  <rect x="0" y="316" width="1200" height="1" fill="#1a1a1a"/>
+
+  <!-- pixel-tear top right -->
+  <rect x="1010" y="120" width="48" height="10" fill="#0a0a0a"/>
+  <rect x="1010" y="118" width="4" height="14" fill="#ff2a4a"/>
+
+  <!-- stray phosphor pixel -->
+  <rect x="180" y="160" width="4" height="4" fill="#33e0ff"/>
+
+  <!-- WRONG wordmark with RGB split, centered -->
+  <g transform="translate(600, 360)">
+    <text class="w" x="-12" y="0" text-anchor="middle" fill="#ff2a4a">WRONG</text>
+    <text class="w" x="12" y="0" text-anchor="middle" fill="#33e0ff">WRONG</text>
+    <text class="w" x="0" y="0" text-anchor="middle" fill="#f1ede5">WRONG</text>
+    <!-- chip out the G's lower terminal -->
+    <rect x="334" y="-58" width="34" height="14" fill="#0a0a0a"/>
+    <rect x="334" y="-58" width="6" height="22" fill="#ff2a4a"/>
+  </g>
+
+  <!-- tagline below wordmark -->
+  <text class="tag" x="600" y="430" text-anchor="middle" fill="#6a6a6a">
+    a browser that's <tspan fill="#f1ede5">wrong</tspan> on purpose.
+  </text>
+
+  <!-- bottom meta line: version + url -->
+  <text class="meta" x="60" y="585" fill="#b6ff7a">&gt;_ v0.2.0</text>
+  <text class="meta" x="200" y="585" fill="#6a6a6a">linux · macOS · windows · MIT</text>
+  <text class="meta" x="1140" y="585" text-anchor="end" fill="#6a6a6a">willbearfruits.github.io/wrong</text>
+
+  <!-- subtle scanlines overlay last so it sits over content -->
+  <rect width="1200" height="630" fill="url(#scan)"/>
+</svg>
