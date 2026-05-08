@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <pattern id="scan" width="2" height="4" patternUnits="userSpaceOnUse">
+      <rect width="2" height="2" fill="rgba(255,255,255,0.04)"/>
+    </pattern>
+    <style>
+      .w {
+        font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace;
+        font-weight: 900;
+        font-size: 360px;
+        letter-spacing: -8px;
+      }
+    </style>
+  </defs>
+  <rect width="512" height="512" fill="#000"/>
+  <!-- horizontal tear band -->
+  <rect x="0" y="288" width="512" height="6" fill="#0e0e0e"/>
+  <!-- W with chromatic aberration -->
+  <text class="w" x="244" y="370" text-anchor="middle" fill="#ff2a4a" transform="translate(-12,0)">W</text>
+  <text class="w" x="268" y="370" text-anchor="middle" fill="#33e0ff" transform="translate(12,0)">W</text>
+  <text class="w" x="256" y="370" text-anchor="middle" fill="#f1ede5">W</text>
+  <!-- top-right tear: missing pixel block -->
+  <rect x="320" y="180" width="40" height="10" fill="#000"/>
+  <rect x="320" y="178" width="3" height="14" fill="#ff2a4a"/>
+  <!-- subtle scanlines overlay -->
+  <rect width="512" height="512" fill="url(#scan)"/>
+  <!-- single bright pixel -->
+  <rect x="404" y="124" width="4" height="4" fill="#33e0ff"/>
+</svg>

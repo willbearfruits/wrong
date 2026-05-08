@@ -1,0 +1,425 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --fg: #b6ff7a;
+    --bg: #0a0a0a;
+    --bg2: #060606;
+    --bg3: #141414;
+    --dim: #1d1d1d;
+    --dim2: #2a2a2a;
+    --warn: #ff2a4a;
+    --bone: #f1ede5;
+    --muted: #6a6a6a;
+    --cyan: #33e0ff;
+    --t: 120ms cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 80px; overflow: hidden;
+               background: var(--bg); color: var(--bone);
+               font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace;
+               font-size: 12.5px; }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background: repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.022) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+  }
+  ::-webkit-scrollbar { height: 4px; width: 4px; }
+  ::-webkit-scrollbar-thumb { background: var(--fg); border-radius: 2px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+
+  /* ─── Tab strip ─── */
+  .tabs { display: flex; align-items: stretch; gap: 3px;
+          padding: 6px 6px 0 6px;
+          height: 40px; overflow-x: auto;
+          background: var(--bg2); border-bottom: 1px solid var(--dim);
+          scrollbar-width: thin; }
+  .brand { display: flex; align-items: center; padding: 0 10px 0 4px;
+           height: 28px; user-select: none; flex-shrink: 0; }
+  .brand svg { display: block; height: 20px; width: auto; }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 0 10px;
+         background: var(--bg3); color: #888;
+         border: 1px solid transparent; border-bottom: none;
+         border-radius: 6px 6px 0 0;
+         font-size: 12px; max-width: 220px; min-width: 100px;
+         cursor: pointer; user-select: none; height: 28px;
+         transition: background var(--t), color var(--t); }
+  .tab:hover { background: #181818; color: var(--bone); }
+  .tab.active { background: var(--bg); color: var(--bone);
+                border-color: var(--dim); border-bottom: 1px solid var(--bg); }
+  .tab .title { flex: 1; overflow: hidden; text-overflow: ellipsis;
+                white-space: nowrap; }
+  .tab .x { color: #555; padding: 0 2px; font-family: monospace;
+            border-radius: 3px; transition: color var(--t), background var(--t); }
+  .tab .x:hover { color: var(--warn); background: rgba(255,42,74,0.08); }
+  .new-tab { padding: 0 12px; background: transparent; border: 1px solid transparent;
+             color: var(--muted); cursor: pointer;
+             border-radius: 6px; height: 28px;
+             transition: color var(--t), border-color var(--t); }
+  .new-tab:hover { color: var(--bone); border-color: var(--dim2); }
+
+  /* ─── Toolbar ─── */
+  .toolbar { display: flex; align-items: center; gap: 8px;
+             padding: 0 10px; height: 40px;
+             background: var(--bg); }
+  .iconbtn { width: 28px; height: 28px; padding: 0;
+             background: transparent; color: var(--bone);
+             border: 1px solid transparent; border-radius: 6px;
+             font: inherit; cursor: pointer; display: flex;
+             align-items: center; justify-content: center;
+             transition: background var(--t), border-color var(--t), color var(--t); }
+  .iconbtn:hover { background: var(--bg3); }
+  .iconbtn:disabled { color: var(--muted); cursor: default; }
+  .iconbtn:disabled:hover { background: transparent; }
+
+  .urlwrap { flex: 1; display: flex; align-items: center;
+             background: var(--bg3); border: 1px solid var(--dim);
+             border-radius: 999px; height: 30px; padding: 0 14px;
+             transition: border-color var(--t), background var(--t); }
+  .urlwrap:focus-within { border-color: var(--bone); background: #0e0e0e; }
+  .urlwrap input { flex: 1; min-width: 0; height: 100%;
+                   background: transparent; color: var(--bone);
+                   border: none; outline: none; font: inherit;
+                   padding: 0; }
+  .urlwrap input::placeholder { color: var(--muted); }
+  .urlwrap input::selection { background: var(--warn); color: #000; }
+  .scheme { color: var(--muted); margin-right: 8px; font-size: 11px; }
+
+  .profilesel { height: 28px; padding: 0 10px;
+                background: var(--bg3); color: var(--bone);
+                border: 1px solid var(--dim); border-radius: 6px;
+                font: inherit; cursor: pointer;
+                transition: border-color var(--t); }
+  .profilesel:hover { border-color: var(--bone); }
+
+  .modepill { display: flex; align-items: center; gap: 6px;
+              padding: 0 10px; height: 28px;
+              border: 1px solid var(--dim); border-radius: 999px;
+              color: var(--muted); font-size: 11px;
+              cursor: pointer; user-select: none;
+              transition: border-color var(--t), color var(--t); }
+  .modepill:hover { border-color: var(--bone); color: var(--bone); }
+  .modepill .dot { width: 6px; height: 6px; border-radius: 50%;
+                   background: var(--fg); }
+  .modepill.cpu .dot { background: var(--warn); }
+  .modepill.cpu { color: var(--warn); border-color: var(--warn); }
+
+  /* ─── Settings popover ─── */
+  .pop { position: fixed; top: 76px; right: 12px;
+         width: 280px; background: var(--bg2);
+         border: 1px solid var(--dim2); border-radius: 10px;
+         padding: 14px; z-index: 1000;
+         box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+         display: none; }
+  .pop.open { display: block; }
+  .pop-row { display: flex; align-items: center; gap: 10px;
+             margin-bottom: 12px; }
+  .pop-row:last-child { margin-bottom: 0; }
+  .pop-row label { color: var(--muted); width: 56px; flex-shrink: 0;
+                   font-size: 11px; text-transform: uppercase;
+                   letter-spacing: 0.5px; }
+  .pop-row input[type=checkbox] { accent-color: var(--bone);
+                                   width: 14px; height: 14px;
+                                   margin: 0; flex-shrink: 0; }
+  .pop-row input[type=range] { flex: 1; accent-color: var(--bone); }
+  .pop-row select { flex: 1; height: 26px; padding: 0 8px;
+                    background: var(--bg3); color: var(--bone);
+                    border: 1px solid var(--dim); border-radius: 4px;
+                    font: inherit; }
+  .pop-row .val { width: 38px; color: var(--muted); text-align: right;
+                  font-variant-numeric: tabular-nums; font-size: 11px; }
+  .pop-divider { height: 1px; background: var(--dim);
+                 margin: 14px -14px; }
+
+  /* ─── Find bar ─── */
+  .find { display: none; position: fixed; top: 48px; right: 12px;
+          background: var(--bg2); border: 1px solid var(--dim2);
+          border-radius: 8px; padding: 6px;
+          gap: 6px; align-items: center; z-index: 10000;
+          box-shadow: 0 6px 16px rgba(0,0,0,0.5); }
+  .find.open { display: flex; }
+  .find input { width: 220px; height: 24px;
+                background: var(--bg3); color: var(--bone);
+                border: 1px solid var(--dim); border-radius: 4px;
+                padding: 0 8px; font: inherit; outline: none; }
+  .find input:focus { border-color: var(--bone); }
+  .find .close { background: transparent; color: var(--muted);
+                 border: none; cursor: pointer; padding: 0 4px;
+                 font-size: 14px; }
+  .find .close:hover { color: var(--warn); }
+</style>
+</head>
+<body>
+  <div class="tabs" id="tabs">
+    <div class="brand" title="WRONG">
+      <svg viewBox="0 0 180 40" xmlns="http://www.w3.org/2000/svg" aria-label="WRONG">
+        <text x="10" y="30" fill="#ff2a4a" font-family="inherit" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <text x="14" y="30" fill="#33e0ff" font-family="inherit" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <text x="12" y="30" fill="#f1ede5" font-family="inherit" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <rect x="148" y="22" width="11" height="6" fill="#060606"/>
+        <rect x="148" y="22" width="2" height="8" fill="#ff2a4a"/>
+      </svg>
+    </div>
+    <button class="new-tab" id="new-tab" title="new tab (Ctrl+T)">+</button>
+  </div>
+
+  <div class="toolbar">
+    <button class="iconbtn" id="back" title="back (Alt+←)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="iconbtn" id="forward" title="forward (Alt+→)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="iconbtn" id="reload" title="reload (Ctrl+R)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M11.5 5A5 5 0 1 0 12 8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M12 2v3.2H8.8" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+
+    <div class="urlwrap">
+      <span class="scheme" id="scheme">https://</span>
+      <input id="url" type="text" placeholder="search or enter url" spellcheck="false">
+    </div>
+
+    <select class="profilesel" id="profile" title="glitch profile">
+      <option value="custom">custom</option>
+      <option value="off">off</option>
+      <option value="subtle">subtle</option>
+      <option value="heavy">heavy</option>
+      <option value="videodrome">videodrome</option>
+      <option value="vaporwave">vaporwave</option>
+      <option value="datamosh">datamosh</option>
+    </select>
+
+    <button class="iconbtn" id="gear" title="glitch settings">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="2" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M7 1.5v1.8M7 10.7v1.8M2.4 4.4l1.5.9M10.1 8.7l1.5.9M2.4 9.6l1.5-.9M10.1 5.3l1.5-.9M1.5 7h1.8M10.7 7h1.8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+    </button>
+
+    <div class="modepill" id="mode-pill" title="rendering mode (click to swap)">
+      <span class="dot"></span>
+      <span id="mode">gpu</span>
+    </div>
+  </div>
+
+  <div class="pop" id="pop">
+    <div class="pop-row">
+      <label>Bytes</label>
+      <input id="enabled" type="checkbox" checked>
+      <input id="int" type="range" min="0" max="200" value="5">
+      <span class="val" id="int-val">.005</span>
+    </div>
+    <div class="pop-row" title="datamosh — push old pixels along new motion">
+      <label>Mosh</label>
+      <span style="width:14px;flex-shrink:0;"></span>
+      <input id="video-fx" type="range" min="0" max="100" value="0">
+      <span class="val" id="video-fx-val">.00</span>
+    </div>
+    <div class="pop-row">
+      <label>Zalgo</label>
+      <input id="zalgo-en" type="checkbox" checked>
+      <input id="zalgo" type="range" min="0" max="100" value="40">
+      <span class="val" id="zalgo-val">.40</span>
+    </div>
+    <div class="pop-row">
+      <label>Audio</label>
+      <span style="width:14px;flex-shrink:0;"></span>
+      <input id="audio" type="range" min="0" max="100" value="0">
+      <span class="val" id="audio-val">.00</span>
+    </div>
+    <div class="pop-divider"></div>
+    <div class="pop-row">
+      <label>Filter</label>
+      <select id="filter">
+        <option value="none">none</option>
+        <option value="chromatic">chromatic</option>
+        <option value="scan">scanlines</option>
+        <option value="invert">invert</option>
+        <option value="hue">hue-shift</option>
+        <option value="vhs">vhs</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="find" id="find">
+    <input id="find-input" type="text" placeholder="find in page" spellcheck="false">
+    <button class="close" id="find-close">×</button>
+  </div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const PROFILES = {
+    off:        { intensity: 0, enabled: false, zalgoIntensity: 0, zalgoEnabled: false, audioGlitch: 0, cssFilter: 'none' },
+    subtle:     { intensity: 0.003, enabled: true, zalgoIntensity: 0.15, zalgoEnabled: true, audioGlitch: 0, cssFilter: 'none' },
+    heavy:      { intensity: 0.02, enabled: true, zalgoIntensity: 0.6, zalgoEnabled: true, audioGlitch: 0.1, cssFilter: 'chromatic' },
+    videodrome: { intensity: 0.04, enabled: true, zalgoIntensity: 1.0, zalgoEnabled: true, audioGlitch: 0.3, cssFilter: 'vhs' },
+    vaporwave:  { intensity: 0.005, enabled: true, zalgoIntensity: 0.2, zalgoEnabled: true, audioGlitch: 0, cssFilter: 'hue' },
+    datamosh:   { intensity: 0.06, enabled: true, zalgoIntensity: 0, zalgoEnabled: false, audioGlitch: 0.05, cssFilter: 'scan' },
+  };
+
+  const COMBINING = ['̃','̌','̈','̄','̆','̕','̖','̱','̆','̅'];
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function lightlyZalgo(s) {
+    if (!s) return s;
+    const h = hash(s);
+    if ((h & 3) !== 0) return s;
+    const idx = h % Math.max(1, s.length);
+    return s.slice(0, idx + 1) + COMBINING[(h >> 8) % COMBINING.length] + s.slice(idx + 1);
+  }
+
+  function applySettings(s) {
+    $('enabled').checked = s.enabled;
+    $('video-fx').value = Math.round((s.videoFx || 0) * 100);
+    $('video-fx-val').textContent = (s.videoFx || 0).toFixed(2);
+    $('int').value = Math.round(s.intensity * 1000);
+    $('int-val').textContent = s.intensity.toFixed(3);
+    $('zalgo-en').checked = s.zalgoEnabled;
+    $('zalgo').value = Math.round(s.zalgoIntensity * 100);
+    $('zalgo-val').textContent = s.zalgoIntensity.toFixed(2);
+    $('audio').value = Math.round((s.audioGlitch || 0) * 100);
+    $('audio-val').textContent = (s.audioGlitch || 0).toFixed(2);
+    $('filter').value = s.cssFilter || 'none';
+    $('profile').value = s.profile || 'custom';
+  }
+  gb.onInitState(applySettings);
+
+  // URL bar: split scheme into the gray prefix
+  function paintScheme(url) {
+    const m = (url || '').match(/^(\w+:\/\/)/);
+    if (m) {
+      $('scheme').textContent = m[1];
+      $('url').value = url.slice(m[1].length);
+    } else {
+      $('scheme').textContent = '';
+      $('url').value = url;
+    }
+  }
+  $('url').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const v = e.target.value;
+      const full = $('scheme').textContent === '' ? v : $('scheme').textContent + v;
+      gb.navigate(full);
+    }
+  });
+  $('url').addEventListener('focus', () => {
+    // expose full URL on focus so it's editable as one piece
+    if ($('scheme').textContent) {
+      $('url').value = $('scheme').textContent + $('url').value;
+      $('scheme').textContent = '';
+    }
+    requestAnimationFrame(() => $('url').select());
+  });
+  $('url').addEventListener('blur', () => paintScheme($('url').value));
+
+  $('back').addEventListener('click', () => gb.back());
+  $('forward').addEventListener('click', () => gb.forward());
+  $('reload').addEventListener('click', () => gb.reload());
+
+  gb.onUrl((url) => paintScheme(url));
+  gb.onFocusUrl(() => $('url').focus());
+
+  $('enabled').addEventListener('change', (e) => { gb.toggleEnabled(e.target.checked); $('profile').value = 'custom'; });
+  $('video-fx').addEventListener('input', (e) => {
+    const v = e.target.value / 100;
+    $('video-fx-val').textContent = v.toFixed(2);
+    gb.setVideoFx(v);
+    $('profile').value = 'custom';
+  });
+  $('int').addEventListener('input', (e) => {
+    const v = e.target.value / 1000;
+    $('int-val').textContent = v.toFixed(3);
+    gb.setIntensity(v);
+    $('profile').value = 'custom';
+  });
+  $('zalgo-en').addEventListener('change', (e) => { gb.toggleZalgo(e.target.checked); $('profile').value = 'custom'; });
+  $('zalgo').addEventListener('input', (e) => {
+    const v = e.target.value / 100;
+    $('zalgo-val').textContent = v.toFixed(2);
+    gb.setZalgo(v);
+    $('profile').value = 'custom';
+  });
+  $('audio').addEventListener('input', (e) => {
+    const v = e.target.value / 100;
+    $('audio-val').textContent = v.toFixed(2);
+    gb.setAudioGlitch(v);
+    $('profile').value = 'custom';
+  });
+  $('filter').addEventListener('change', (e) => { gb.setCssFilter(e.target.value); $('profile').value = 'custom'; });
+
+  $('profile').addEventListener('change', (e) => {
+    const name = e.target.value;
+    const p = PROFILES[name];
+    if (!p) return;
+    gb.applyProfile({ ...p, name });
+  });
+
+  // Mode pill
+  gb.getMode().then((mode) => {
+    $('mode').textContent = mode;
+    $('mode-pill').classList.toggle('cpu', mode === 'cpu');
+    $('mode-pill').addEventListener('click', () => gb.relaunch(mode === 'cpu' ? 'gpu' : 'cpu'));
+  });
+
+  // Settings popover. Chrome view is only 80px tall, so when the popover
+  // opens we ask main to grow the chrome view; closing shrinks it back.
+  const pop = $('pop');
+  function openPop() {
+    pop.classList.add('open');
+    gb.chromeExpanded(true);
+  }
+  function closePop() {
+    pop.classList.remove('open');
+    gb.chromeExpanded(false);
+  }
+  $('gear').addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.classList.contains('open') ? closePop() : openPop();
+  });
+  document.addEventListener('click', (e) => {
+    if (!pop.classList.contains('open')) return;
+    if (pop.contains(e.target)) return;
+    if ($('gear').contains(e.target) || e.target === $('gear')) return;
+    closePop();
+  });
+
+  // Tabs
+  function renderTabs(payload) {
+    const strip = $('tabs');
+    [...strip.querySelectorAll('.tab')].forEach(n => n.remove());
+    const newBtn = $('new-tab');
+    for (const t of payload.tabs) {
+      const el = document.createElement('div');
+      el.className = 'tab' + (t.id === payload.activeId ? ' active' : '');
+      el.title = t.url;
+      const title = document.createElement('span');
+      title.className = 'title';
+      title.textContent = lightlyZalgo(t.title || 'new tab');
+      const x = document.createElement('span');
+      x.className = 'x';
+      x.textContent = '×';
+      x.addEventListener('click', (e) => { e.stopPropagation(); gb.tabClose(t.id); });
+      el.addEventListener('click', () => gb.tabActivate(t.id));
+      el.addEventListener('auxclick', (e) => { if (e.button === 1) gb.tabClose(t.id); });
+      el.appendChild(title);
+      el.appendChild(x);
+      strip.insertBefore(el, newBtn);
+    }
+  }
+  gb.onTabs(renderTabs);
+  $('new-tab').addEventListener('click', () => gb.tabNew());
+
+  // Find bar
+  gb.onOpenFind(() => {
+    $('find').classList.add('open');
+    $('find-input').focus();
+    $('find-input').select();
+  });
+  $('find-input').addEventListener('input', (e) => gb.find(e.target.value));
+  $('find-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') gb.find(e.target.value);
+    if (e.key === 'Escape') { $('find').classList.remove('open'); gb.findStop(); }
+  });
+  $('find-close').addEventListener('click', () => { $('find').classList.remove('open'); gb.findStop(); });
+</script>
+</body>
+</html>

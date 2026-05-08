@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WRONG — a browser that's wrong on purpose</title>
+<meta name="description" content="WRONG is a deliberately broken Linux browser. Byte-flipped images, zalgo text, datamoshed video. Six corruption profiles, no telemetry, MIT.">
+<style>
+  :root {
+    --fg: #b6ff7a;
+    --bg: #0a0a0a;
+    --bg2: #060606;
+    --bg3: #141414;
+    --dim: #1d1d1d;
+    --dim2: #2a2a2a;
+    --warn: #ff2a4a;
+    --bone: #f1ede5;
+    --muted: #6a6a6a;
+    --cyan: #33e0ff;
+    --t: 120ms cubic-bezier(.2,.8,.2,1);
+    --maxw: 1080px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0;
+               background: var(--bg); color: var(--bone);
+               font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace;
+               font-size: 14px; line-height: 1.55; }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background: repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.022) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+  }
+  ::selection { background: var(--warn); color: #000; }
+
+  a { color: var(--bone); text-decoration: none;
+      border-bottom: 1px dotted var(--dim2);
+      transition: color var(--t), border-color var(--t); }
+  a:hover { color: var(--cyan); border-bottom-color: var(--cyan); }
+  a:focus-visible { outline: 1px solid var(--cyan); outline-offset: 2px; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+
+  /* nav */
+  nav.top {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--dim);
+    height: 48px;
+  }
+  nav.top .row {
+    display: flex; align-items: center; justify-content: space-between;
+    height: 100%;
+  }
+  nav.top svg { display: block; height: 22px; width: auto; }
+  nav.top .links { display: flex; gap: 18px; font-size: 12px;
+                   color: var(--muted); letter-spacing: 0.4px;
+                   text-transform: lowercase; }
+  nav.top .links a { color: var(--muted); border: none; }
+  nav.top .links a:hover { color: var(--bone); }
+
+  /* hero */
+  section.hero { padding: 96px 0 72px; text-align: center; position: relative; }
+  .hero svg.mark { display: block; margin: 0 auto;
+                   width: min(720px, 86vw); height: auto;
+                   filter: drop-shadow(0 0 24px rgba(0,0,0,0.7)); }
+  .hero .tag { color: var(--muted); font-size: 16px;
+               letter-spacing: 0.5px; margin: 18px 0 32px; }
+  .hero .tag em { color: var(--bone); font-style: normal; }
+
+  .ctas { display: flex; gap: 12px; justify-content: center;
+          flex-wrap: wrap; margin-bottom: 28px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 18px; min-height: 44px;
+    background: transparent; color: var(--bone);
+    border: 1px solid var(--bone); border-radius: 0;
+    font: inherit; font-size: 13px; letter-spacing: 0.4px;
+    text-transform: lowercase; cursor: pointer;
+    transition: background var(--t), color var(--t), border-color var(--t);
+  }
+  .btn:hover { background: var(--bone); color: #000; }
+  .btn .arr { color: var(--fg); }
+  .btn:hover .arr { color: var(--warn); }
+  .btn.primary { border-color: var(--fg); color: var(--fg); }
+  .btn.primary:hover { background: var(--fg); color: #000; }
+  .btn.primary:hover .arr { color: #000; }
+
+  .versionline {
+    color: var(--muted); font-size: 12px;
+    letter-spacing: 0.4px;
+  }
+  .versionline .p { color: var(--fg); }
+  .versionline .sep { color: var(--dim2); margin: 0 8px; }
+
+  /* sections */
+  section { padding: 64px 0; border-top: 1px solid var(--dim); }
+  h2.sect {
+    font-size: 11px; letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--muted); font-weight: 400;
+    margin: 0 0 24px;
+  }
+  h2.sect::before { content: "// "; color: var(--dim2); }
+
+  /* screenshot grid */
+  .shotgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .shotgrid figure { margin: 0; }
+  .shotgrid img { width: 100%; height: auto; display: block;
+                  border: 1px solid var(--bone); }
+  .shotgrid figcaption { font-size: 11px; color: var(--muted);
+                         margin-top: 6px; letter-spacing: 0.4px; }
+  @media (max-width: 720px) { .shotgrid { grid-template-columns: 1fr; } }
+
+  /* video (legacy, kept for any future inline video) */
+  .videoframe {
+    border: 1px solid var(--bone);
+    background: var(--bg2);
+    padding: 1px;
+    aspect-ratio: 16/9;
+    max-width: 880px; margin: 0 auto;
+    position: relative;
+  }
+  .videoframe video { display: block; width: 100%; height: 100%;
+                      object-fit: cover; background: #000; }
+  .videoframe::after {
+    content: "DEMO · 0:30"; position: absolute; top: 8px; left: 10px;
+    font-size: 10px; letter-spacing: 0.6px;
+    color: var(--warn); background: rgba(0,0,0,0.7);
+    padding: 2px 6px; pointer-events: none;
+  }
+
+  /* feature grid */
+  .grid {
+    display: grid; gap: 1px;
+    grid-template-columns: repeat(2, 1fr);
+    background: var(--dim);
+    border: 1px solid var(--dim);
+  }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .tile {
+    background: var(--bg);
+    padding: 28px 24px;
+    transition: background var(--t);
+  }
+  .tile:hover { background: var(--bg2); }
+  .tile .ic {
+    font-size: 22px; line-height: 1;
+    margin-bottom: 14px;
+    color: var(--fg);
+    display: block;
+  }
+  .tile:nth-child(2) .ic { color: var(--cyan); }
+  .tile:nth-child(3) .ic { color: var(--warn); }
+  .tile:nth-child(4) .ic { color: var(--bone); }
+  .tile h3 { margin: 0 0 6px; font-size: 14px;
+             font-weight: 700; color: var(--bone);
+             letter-spacing: -0.2px; }
+  .tile p { margin: 0; color: var(--muted); font-size: 12.5px;
+            line-height: 1.55; }
+
+  /* why */
+  .why {
+    max-width: 760px; margin: 0 auto;
+    font-style: italic; font-size: 19px; line-height: 1.6;
+    color: var(--bone);
+    border-left: 2px solid var(--warn);
+    padding: 8px 0 8px 22px;
+  }
+  .why::before, .why::after { color: var(--muted);
+                              font-style: normal; font-size: 24px;
+                              vertical-align: -4px; }
+  .why::before { content: "\201C"; margin-right: 4px; }
+  .why::after  { content: "\201D"; margin-left: 4px; }
+
+  /* sysreq */
+  .sysreq {
+    color: var(--muted); font-size: 13px;
+    letter-spacing: 0.4px; text-align: center;
+  }
+  .sysreq .sep { color: var(--dim2); margin: 0 10px; }
+  .sysreq b { color: var(--bone); font-weight: 400; }
+
+  /* install block */
+  .term {
+    background: var(--bg2);
+    border: 1px solid var(--dim2);
+    padding: 0;
+    max-width: 720px; margin: 0 auto;
+  }
+  .term .bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--dim2);
+    color: var(--muted); font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+  .term .bar .lights { display: flex; gap: 5px; margin-right: 8px; }
+  .term .bar .lights span {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--dim2);
+  }
+  .term .bar .lights span:nth-child(1) { background: var(--warn); }
+  .term .bar .lights span:nth-child(2) { background: #c8a000; }
+  .term .bar .lights span:nth-child(3) { background: var(--fg); }
+  .term pre {
+    margin: 0; padding: 18px 16px;
+    color: var(--bone); font-size: 13px;
+    overflow-x: auto;
+    font-family: inherit;
+  }
+  .term .pr { color: var(--fg); user-select: none; }
+  .term .cm { color: var(--muted); }
+
+  /* footer */
+  footer {
+    border-top: 1px solid var(--dim);
+    padding: 32px 0 48px;
+    color: var(--muted); font-size: 12px;
+  }
+  footer .row {
+    display: flex; justify-content: space-between;
+    align-items: center; flex-wrap: wrap; gap: 12px;
+  }
+  footer .badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    border: 1px solid var(--dim2); padding: 4px 10px;
+    color: var(--bone);
+  }
+  footer .badge .k { color: var(--muted); }
+  footer .made em { color: var(--bone); font-style: normal; }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap row">
+    <a href="#top" aria-label="WRONG" style="border:none;">
+      <svg viewBox="0 0 180 40" xmlns="http://www.w3.org/2000/svg">
+        <text x="10" y="30" fill="#ff2a4a" font-family="Iosevka,monospace" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <text x="14" y="30" fill="#33e0ff" font-family="Iosevka,monospace" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <text x="12" y="30" fill="#f1ede5" font-family="Iosevka,monospace" font-weight="900" font-size="30" letter-spacing="-1">WRONG</text>
+        <rect x="148" y="22" width="11" height="6" fill="#0a0a0a"/>
+        <rect x="148" y="22" width="2" height="8" fill="#ff2a4a"/>
+      </svg>
+    </a>
+    <div class="links">
+      <a href="#features">features</a>
+      <a href="#why">why</a>
+      <a href="#install">install</a>
+      <a href="https://github.com/willbearfruits/wrong">github</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <svg class="mark" viewBox="0 0 480 100" xmlns="http://www.w3.org/2000/svg" aria-label="WRONG">
+      <text x="20" y="78" fill="#ff2a4a" font-family="Iosevka,monospace" font-weight="900" font-size="86" letter-spacing="-3">WRONG</text>
+      <text x="28" y="78" fill="#33e0ff" font-family="Iosevka,monospace" font-weight="900" font-size="86" letter-spacing="-3">WRONG</text>
+      <text x="24" y="78" fill="#f1ede5" font-family="Iosevka,monospace" font-weight="900" font-size="86" letter-spacing="-3">WRONG</text>
+      <rect x="396" y="52" width="30" height="16" fill="#0a0a0a"/>
+      <rect x="396" y="52" width="5" height="22" fill="#ff2a4a"/>
+    </svg>
+    <p class="tag">a browser that's <em>wrong</em> on purpose.</p>
+
+    <div class="ctas">
+      <a class="btn primary" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0.AppImage" download>
+        download <span class="arr">→</span> <span style="color:var(--muted);">wrong-0.2.0.AppImage</span>
+      </a>
+      <a class="btn" href="https://github.com/willbearfruits/wrong">
+        github <span class="arr">→</span>
+      </a>
+    </div>
+
+    <div class="versionline">
+      <span class="p">&gt;_</span> v0.2.0
+      <span class="sep">·</span> linux x86_64
+      <span class="sep">·</span> MIT
+    </div>
+  </div>
+</section>
+
+<section id="demo">
+  <div class="wrap">
+    <h2 class="sect">stills</h2>
+    <div class="shotgrid">
+      <figure>
+        <img src="screenshots/wiki-heavy.png" alt="Wikipedia at high intensity — heavy zalgo, glitched JPEG">
+        <figcaption>wikipedia · intensity 0.018 · zalgo 0.7 — the JPEG is partially decoding</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/newtab.png" alt="WRONG new tab page">
+        <figcaption>new tab · search + one-click profile presets</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/wiki-subtle.png" alt="Wikipedia at low intensity — light zalgo, mild image corruption">
+        <figcaption>wikipedia · intensity 0.004 · zalgo 0.25 — barely uncomfortable</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/hn.png" alt="Hacker News with zalgo">
+        <figcaption>hacker news · text only · zalgo 0.5</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="features">
+  <div class="wrap">
+    <h2 class="sect">features</h2>
+    <div class="grid">
+      <div class="tile">
+        <span class="ic">▚</span>
+        <h3>byte-flip image responses</h3>
+        <p>corrupts JPEG/PNG bytes pre-decode for authentic decoder smear — not a CSS filter, the real artifact.</p>
+      </div>
+      <div class="tile">
+        <span class="ic">█</span>
+        <h3>zalgo every visible character</h3>
+        <p>pierces shadow DOM, walks every text node, injects combining marks. nothing escapes.</p>
+      </div>
+      <div class="tile">
+        <span class="ic">▞</span>
+        <h3>datamosh youtube</h3>
+        <p>block-matched motion warp on decoded video frames; old pixels ride new motion vectors.</p>
+      </div>
+      <div class="tile">
+        <span class="ic">◐</span>
+        <h3>tunable corruption</h3>
+        <p>six profile presets from <span style="color:var(--bone)">subtle</span> to <span style="color:var(--warn)">videodrome</span>, or fine-tune every parameter.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="wrap">
+    <h2 class="sect">why</h2>
+    <p class="why">a perfectly functioning browser is a tool of obedience. WRONG is a tool of refusal — a daily reminder that the seamless surface is a choice, not a law. it makes the seams visible by tearing them. use it to make art, to feel the substrate, or just because everything else is too clean.</p>
+  </div>
+</section>
+
+<section id="sysreq">
+  <div class="wrap">
+    <h2 class="sect">requirements</h2>
+    <p class="sysreq">
+      <b>linux x86_64</b><span class="sep">·</span>
+      <b>~180mb</b><span class="sep">·</span>
+      <b>no telemetry</b><span class="sep">·</span>
+      <b>no ads</b><span class="sep">·</span>
+      <b>runs as appimage</b>
+    </p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2 class="sect">install</h2>
+    <div class="term">
+      <div class="bar">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <span>~/Downloads — bash</span>
+      </div>
+<pre><span class="cm"># make it executable, run it.</span>
+<span class="pr">$</span> chmod +x WRONG-0.2.0.AppImage &amp;&amp; ./WRONG-0.2.0.AppImage</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <div>
+      <a href="https://github.com/willbearfruits/wrong">github.com/willbearfruits/wrong</a>
+      <span class="badge" style="margin-left:12px;"><span class="k">license</span> MIT</span>
+    </div>
+    <div class="made">made <em>wrong</em> by willbearfruits · 2026</div>
+  </div>
+</footer>
+
+</body>
+</html>

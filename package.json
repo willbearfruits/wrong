@@ -1,0 +1,76 @@
+{
+  "name": "wrong",
+  "version": "0.2.0",
+  "description": "WRONG — a browser that's wrong on purpose.",
+  "author": {
+    "name": "willbearfruits",
+    "email": "willbear_fruits@proton.me"
+  },
+  "license": "MIT",
+  "homepage": "https://willbearfruits.github.io/wrong/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/willbearfruits/wrong.git"
+  },
+  "bugs": {
+    "url": "https://github.com/willbearfruits/wrong/issues"
+  },
+  "keywords": [
+    "browser",
+    "electron",
+    "glitch",
+    "datamosh",
+    "art",
+    "zalgo",
+    "creative-coding"
+  ],
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "start:cpu": "electron . --cpu",
+    "start:debug": "WRONG_DEBUG=1 electron .",
+    "icons": "rsvg-convert -w 512 -h 512 assets/icon.svg -o build/icon.png && rsvg-convert -w 256 -h 256 assets/icon.svg -o build/icon-256.png && rsvg-convert -w 128 -h 128 assets/icon.svg -o build/icon-128.png && rsvg-convert -w 64 -h 64 assets/icon.svg -o build/icon-64.png",
+    "dist": "npm run icons && electron-builder --publish never",
+    "dist:linux": "npm run icons && electron-builder --linux --publish never",
+    "release:draft": "npm run icons && electron-builder --linux --publish always",
+    "release:publish": "EP_DRAFT=false npm run icons && electron-builder --linux --publish always"
+  },
+  "build": {
+    "appId": "art.glitches.wrong",
+    "productName": "WRONG",
+    "asar": true,
+    "files": [
+      "main.js",
+      "preload.js",
+      "chrome-preload.js",
+      "chrome.html",
+      "newtab.html",
+      "glitch/**",
+      "assets/**",
+      "build/icon*.png",
+      "package.json",
+      "!**/.DS_Store",
+      "!**/screenshots/**",
+      "!**/screenshot.js"
+    ],
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Network",
+      "icon": "build/icon.png",
+      "executableName": "wrong",
+      "synopsis": "a browser that's wrong on purpose",
+      "description": "a deliberately broken browser. byte-flips image responses, zalgos every visible character, datamoshes video. for art, not for productivity."
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "willbearfruits",
+      "repo": "wrong",
+      "releaseType": "draft"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

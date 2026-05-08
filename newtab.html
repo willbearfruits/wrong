@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>new tab — WRONG</title>
+<style>
+  :root {
+    --fg: #b6ff7a;
+    --bg: #0a0a0a;
+    --bg2: #060606;
+    --bg3: #141414;
+    --dim: #1d1d1d;
+    --dim2: #2a2a2a;
+    --warn: #ff2a4a;
+    --bone: #f1ede5;
+    --muted: #6a6a6a;
+    --cyan: #33e0ff;
+    --t: 120ms cubic-bezier(.2,.8,.2,1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%;
+               background: var(--bg); color: var(--bone);
+               font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace;
+               font-size: 13px; }
+  body::after {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 999;
+    background: repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.022) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 998;
+    background:
+      radial-gradient(ellipse at 50% 30%, rgba(182,255,122,0.03), transparent 60%),
+      radial-gradient(ellipse at 80% 90%, rgba(51,224,255,0.02), transparent 50%);
+  }
+
+  main {
+    min-height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 48px 24px 80px;
+    gap: 28px;
+    position: relative;
+  }
+
+  /* corner status: looks like a tool readout */
+  .corner {
+    position: fixed; top: 14px; left: 16px;
+    color: var(--muted); font-size: 10.5px;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    z-index: 5; user-select: none;
+  }
+  .corner .dot { display: inline-block; width: 6px; height: 6px;
+                 border-radius: 50%; background: var(--fg);
+                 margin-right: 6px; vertical-align: 1px;
+                 box-shadow: 0 0 6px var(--fg); }
+  .corner b { color: var(--bone); font-weight: 400; }
+
+  .corner-r {
+    position: fixed; top: 14px; right: 16px;
+    color: var(--muted); font-size: 10.5px;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    z-index: 5; user-select: none;
+    text-align: right;
+  }
+
+  /* the jitter block — small, cheap, intentional */
+  .jitter {
+    position: fixed; bottom: 18px; left: 18px;
+    width: 14px; height: 14px;
+    background: var(--warn);
+    z-index: 5;
+    animation: jitter 4.7s steps(1) infinite;
+  }
+  @keyframes jitter {
+    0%, 92%, 100% { transform: translate(0,0); background: var(--warn); }
+    93% { transform: translate(1px,0); }
+    94% { transform: translate(-1px,1px); background: var(--cyan); }
+    95% { transform: translate(0,-1px); }
+    96% { transform: translate(1px,1px); background: var(--bone); }
+    97% { transform: translate(-1px,0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .jitter { animation: none; }
+  }
+
+  /* wordmark */
+  .wordmark { display: block; width: min(560px, 80vw); height: auto;
+              filter: drop-shadow(0 0 18px rgba(0,0,0,0.6)); }
+
+  .tag {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    margin-top: -8px;
+  }
+  .tag em { color: var(--bone); font-style: normal; }
+
+  /* search */
+  form.search {
+    width: 100%; max-width: 620px;
+    display: flex; align-items: center;
+    background: var(--bg3); border: 1px solid var(--dim);
+    border-radius: 999px; height: 44px; padding: 0 18px;
+    transition: border-color var(--t), background var(--t);
+  }
+  form.search:focus-within { border-color: var(--bone); background: #0e0e0e; }
+  form.search .prompt { color: var(--fg); margin-right: 10px;
+                        font-weight: 700; user-select: none; }
+  form.search input {
+    flex: 1; min-width: 0; height: 100%;
+    background: transparent; color: var(--bone);
+    border: none; outline: none; font: inherit;
+  }
+  form.search input::placeholder { color: var(--muted); }
+  form.search input::selection { background: var(--warn); color: #000; }
+  form.search .hint { color: var(--muted); font-size: 10.5px;
+                      letter-spacing: 0.4px; text-transform: uppercase;
+                      margin-left: 10px; user-select: none; }
+
+  /* profile chips */
+  .chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    justify-content: center;
+    max-width: 620px;
+  }
+  .chip {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--dim2); border-radius: 0;
+    padding: 6px 12px; height: 28px;
+    font: inherit; font-size: 11.5px;
+    letter-spacing: 0.4px; text-transform: lowercase;
+    cursor: pointer;
+    transition: color var(--t), border-color var(--t), background var(--t);
+  }
+  .chip:hover { color: var(--bone); border-color: var(--bone); }
+  .chip:focus-visible { outline: 1px solid var(--cyan); outline-offset: 2px; }
+  .chip[data-p="off"]:hover        { color: var(--muted); border-color: var(--muted); }
+  .chip[data-p="subtle"]:hover     { color: var(--bone); }
+  .chip[data-p="heavy"]:hover      { color: var(--warn); border-color: var(--warn); }
+  .chip[data-p="videodrome"]:hover { color: var(--warn); border-color: var(--warn);
+                                     background: rgba(255,42,74,0.06); }
+  .chip[data-p="vaporwave"]:hover  { color: var(--cyan); border-color: var(--cyan); }
+  .chip[data-p="datamosh"]:hover   { color: var(--fg); border-color: var(--fg); }
+
+  .chips-label {
+    color: var(--muted); font-size: 10.5px;
+    letter-spacing: 0.6px; text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  /* footer hint */
+  .footer-hint {
+    position: fixed; bottom: 14px; right: 16px;
+    color: var(--muted); font-size: 10.5px;
+    letter-spacing: 0.4px; text-transform: uppercase;
+    user-select: none;
+  }
+  .footer-hint kbd {
+    display: inline-block; padding: 1px 6px; margin: 0 2px;
+    border: 1px solid var(--dim2); border-radius: 3px;
+    color: var(--bone); font-size: 10px;
+    background: var(--bg2);
+  }
+</style>
+</head>
+<body>
+  <div class="corner"><span class="dot"></span><b>WRONG</b> · session ready</div>
+  <div class="corner-r">internal://newtab<br><span style="color:var(--dim2)">────────────</span></div>
+
+  <main>
+    <svg class="wordmark" viewBox="0 0 360 80" xmlns="http://www.w3.org/2000/svg" aria-label="WRONG">
+      <text x="20" y="62" fill="#ff2a4a" font-family="Iosevka,JetBrains Mono,monospace" font-weight="900" font-size="64" letter-spacing="-2">WRONG</text>
+      <text x="28" y="62" fill="#33e0ff" font-family="Iosevka,JetBrains Mono,monospace" font-weight="900" font-size="64" letter-spacing="-2">WRONG</text>
+      <text x="24" y="62" fill="#f1ede5" font-family="Iosevka,JetBrains Mono,monospace" font-weight="900" font-size="64" letter-spacing="-2">WRONG</text>
+      <!-- chipped G -->
+      <rect x="298" y="42" width="22" height="12" fill="#0a0a0a"/>
+      <rect x="298" y="42" width="4" height="16" fill="#ff2a4a"/>
+    </svg>
+
+    <div class="tag">a browser that's <em>wrong</em> on purpose.</div>
+
+    <form class="search" id="f" autocomplete="off">
+      <span class="prompt">&gt;</span>
+      <input id="q" type="text" placeholder="search or enter url" spellcheck="false" autofocus>
+      <span class="hint">↵ go</span>
+    </form>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="chips-label">apply profile</div>
+      <div class="chips" id="chips">
+        <button class="chip" data-p="subtle">subtle</button>
+        <button class="chip" data-p="heavy">heavy</button>
+        <button class="chip" data-p="videodrome">videodrome</button>
+        <button class="chip" data-p="vaporwave">vaporwave</button>
+        <button class="chip" data-p="datamosh">datamosh</button>
+        <button class="chip" data-p="off">off</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="jitter" aria-hidden="true"></div>
+  <div class="footer-hint"><kbd>Ctrl</kbd><kbd>L</kbd> focus url · <kbd>Ctrl</kbd><kbd>T</kbd> new tab</div>
+
+<script>
+  // search submit: URL-ish? navigate. else DDG.
+  document.getElementById('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var v = document.getElementById('q').value.trim();
+    if (!v) return;
+    var isUrl = /^[a-z]+:\/\//i.test(v) ||
+                /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(v) ||
+                v.startsWith('localhost') || /^\d+\.\d+\.\d+\.\d+/.test(v);
+    var dest = isUrl
+      ? (/^[a-z]+:\/\//i.test(v) ? v : 'https://' + v)
+      : 'https://duckduckgo.com/?q=' + encodeURIComponent(v);
+    location.href = dest;
+  });
+  // profile chips dispatch wrong:profile
+  document.getElementById('chips').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip');
+    if (!b) return;
+    var name = b.dataset.p;
+    if (window.wrong && window.wrong.applyProfile) window.wrong.applyProfile(name);
+    b.style.color = '#f1ede5';
+    b.style.borderColor = '#f1ede5';
+    setTimeout(function(){ b.style.color=''; b.style.borderColor=''; }, 240);
+  });
+</script>
+</body>
+</html>

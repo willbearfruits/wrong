@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="40" viewBox="0 0 180 40">
+  <defs>
+    <style>
+      .w {
+        font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace;
+        font-weight: 900;
+        font-size: 30px;
+        letter-spacing: -1px;
+      }
+    </style>
+  </defs>
+  <!-- red channel, shifted left -->
+  <text class="w" x="10" y="30" fill="#ff2a4a">WRONG</text>
+  <!-- cyan channel, shifted right -->
+  <text class="w" x="14" y="30" fill="#33e0ff">WRONG</text>
+  <!-- bone main -->
+  <text class="w" x="12" y="30" fill="#f1ede5">WRONG</text>
+  <!-- chip the G's lower terminal so it reads "broken" -->
+  <rect x="148" y="22" width="11" height="6" fill="#000"/>
+  <rect x="148" y="22" width="2" height="8" fill="#ff2a4a"/>
+</svg>
