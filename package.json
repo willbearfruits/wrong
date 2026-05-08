@@ -30,11 +30,14 @@
     "start": "electron .",
     "start:cpu": "electron . --cpu",
     "start:debug": "WRONG_DEBUG=1 electron .",
-    "icons": "rsvg-convert -w 512 -h 512 assets/icon.svg -o build/icon.png && rsvg-convert -w 256 -h 256 assets/icon.svg -o build/icon-256.png && rsvg-convert -w 128 -h 128 assets/icon.svg -o build/icon-128.png && rsvg-convert -w 64 -h 64 assets/icon.svg -o build/icon-64.png",
+    "icons": "rsvg-convert -w 1024 -h 1024 assets/icon.svg -o build/icon.png && rsvg-convert -w 512 -h 512 assets/icon.svg -o build/icon-512.png && rsvg-convert -w 256 -h 256 assets/icon.svg -o build/icon-256.png && rsvg-convert -w 128 -h 128 assets/icon.svg -o build/icon-128.png && rsvg-convert -w 64 -h 64 assets/icon.svg -o build/icon-64.png",
     "dist": "npm run icons && electron-builder --publish never",
     "dist:linux": "npm run icons && electron-builder --linux --publish never",
-    "release:draft": "npm run icons && electron-builder --linux --publish always",
-    "release:publish": "EP_DRAFT=false npm run icons && electron-builder --linux --publish always"
+    "dist:mac": "npm run icons && electron-builder --mac --publish never",
+    "dist:win": "npm run icons && electron-builder --win --publish never",
+    "release:linux": "npm run icons && electron-builder --linux --publish always",
+    "release:mac": "npm run icons && electron-builder --mac --publish always",
+    "release:win": "npm run icons && electron-builder --win --publish always"
   },
   "build": {
     "appId": "art.glitches.wrong",
@@ -61,6 +64,33 @@
       "executableName": "wrong",
       "synopsis": "a browser that's wrong on purpose",
       "description": "a deliberately broken browser. byte-flips image responses, zalgos every visible character, datamoshes video. for art, not for productivity."
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "build/icon.png",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "WRONG ${version}",
+      "writeUpdateInfo": false
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "WRONG"
     },
     "publish": {
       "provider": "github",
