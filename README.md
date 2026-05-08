@@ -2,9 +2,35 @@
 
 > a browser that's wrong on purpose
 
-![WRONG on Wikipedia, heavy preset](docs/screenshots/wiki-heavy.png)
+![WRONG on Wikipedia at heavy intensity — partial JPEG decode + heavy zalgo text](docs/screenshots/wiki-heavy.png)
 
-WRONG is an Electron-based web browser that deliberately corrupts what it shows you. It byte-flips JPEG/PNG/WebP/GIF responses before the decoder sees them. It pierces shadow DOMs and pours combining diacritics into every visible character. It datamoshes video on the fly with block-matched motion warping. It is not a productivity tool. It is the browser equivalent of a malfunctioning television.
+[![License: MIT](https://img.shields.io/badge/license-MIT-b6ff7a.svg?style=flat-square&labelColor=0a0a0a)](./LICENSE)
+[![Platforms](https://img.shields.io/badge/platforms-linux%20·%20macOS%20·%20windows-f1ede5?style=flat-square&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
+[![Latest release](https://img.shields.io/github/v/release/willbearfruits/wrong?include_prereleases&style=flat-square&color=33e0ff&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
+[![Downloads](https://img.shields.io/github/downloads/willbearfruits/wrong/total?style=flat-square&color=ff2a4a&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
+[![Stars](https://img.shields.io/github/stars/willbearfruits/wrong?style=flat-square&color=b6ff7a&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/stargazers)
+
+WRONG is an Electron-based web browser that **deliberately corrupts what it shows you**. It byte-flips JPEG/PNG/WebP/GIF responses before the decoder sees them. It pierces shadow DOMs and pours combining diacritics into every visible character. It datamoshes video on the fly with block-matched motion warping. It is not a productivity tool. It is the browser equivalent of a malfunctioning television.
+
+This is glitch art as an everyday browsing surface. The artefacts you see are real decoder failures, not painted-on filters — corruption is injected at the byte level (image responses) and the frame level (decoded video pixels), exactly where genuine glitches live.
+
+**Live site & downloads:** [willbearfruits.github.io/wrong](https://willbearfruits.github.io/wrong/)
+
+---
+
+## table of contents
+
+- [download](#download)
+- [what it does](#what-it-does)
+- [features](#features)
+- [philosophy](#philosophy)
+- [run from source](#run-from-source)
+- [build a local AppImage](#build-a-local-appimage)
+- [controls](#controls)
+- [what it doesn't do](#what-it-doesnt-do)
+- [tech](#tech)
+- [contributing](#contributing)
+- [license](#license)
 
 ## download
 
@@ -131,8 +157,23 @@ The gear icon in the toolbar opens the glitch settings popover.
 
 Electron 33 (`BaseWindow` + `WebContentsView`, no deprecated webview tag). Single Chromium engine — same compatibility as Chrome — but intercepted at the network layer for byte mangling and the DOM layer for everything else.
 
+## contributing
+
+PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for what's in scope, what isn't, and dev setup. Bug reports and feature requests in [Issues](https://github.com/willbearfruits/wrong/issues).
+
 ## license
 
 MIT — see [LICENSE](./LICENSE).
 
-made wrong by [willbearfruits](https://github.com/willbearfruits) · 2026
+## related & inspiration
+
+- [datamoshing](https://en.wikipedia.org/wiki/Datamoshing) — the technique WRONG simulates at the canvas level
+- [Takeshi Murata](https://en.wikipedia.org/wiki/Takeshi_Murata), [Cory Arcangel](https://coryarcangel.com/), [Rosa Menkman](https://rosa-menkman.blogspot.com/) — artists working with codec corruption
+- [zalgo text generators](https://en.wikipedia.org/wiki/Zalgo) — the combining-diacritic aesthetic
+- [Servo](https://servo.org/) — the alternative path I considered (rewriting the engine), abandoned in favour of intercepting Chromium
+
+---
+
+*made wrong by [willbearfruits](https://github.com/willbearfruits) · 2026*
+
+*Tags: glitch browser · datamosh · zalgo · electron · broken browser · art browser · creative coding · JPEG glitch · image corruption · web art · internet art*
