@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="scan" width="2" height="3" patternUnits="userSpaceOnUse">
+      <rect width="2" height="1" fill="rgba(255,255,255,0.025)"/>
+    </pattern>
+    <linearGradient id="leftblock" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0%"   stop-color="#0a0a0a" stop-opacity="1"/>
+      <stop offset="85%"  stop-color="#0a0a0a" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#0a0a0a" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="rightfade" x1="0" x2="0" y1="1" y2="0">
+      <stop offset="0%"   stop-color="#0a0a0a" stop-opacity="0.85"/>
+      <stop offset="40%"  stop-color="#0a0a0a" stop-opacity="0"/>
+    </linearGradient>
+    <style>
+      .w { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 900; font-size: 158px; letter-spacing: -6px; }
+      .tag { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 400; font-size: 22px; letter-spacing: 0.5px; }
+      .meta { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 500; font-size: 14px; letter-spacing: 0.6px; }
+      .small { font-family: "Iosevka","JetBrains Mono","DejaVu Sans Mono",ui-monospace,monospace; font-weight: 400; font-size: 13px; letter-spacing: 0.4px; }
+    </style>
+  </defs>
+
+  <!-- LEFT: solid black panel with feathered edge into screenshot -->
+  <rect width="640" height="630" fill="url(#leftblock)"/>
+
+  <!-- horizontal tear band on the left panel -->
+  <rect x="40" y="318" width="560" height="3" fill="#1a1a1a"/>
+
+  <!-- pixel tear top-left of left panel -->
+  <rect x="40" y="50" width="36" height="8" fill="#0a0a0a"/>
+  <rect x="40" y="48" width="3" height="12" fill="#ff2a4a"/>
+
+  <!-- WRONG wordmark, left-aligned in left panel -->
+  <g transform="translate(60, 320)">
+    <text class="w" x="-6" y="0" fill="#ff2a4a">WRONG</text>
+    <text class="w" x="6"  y="0" fill="#33e0ff">WRONG</text>
+    <text class="w" x="0"  y="0" fill="#f1ede5">WRONG</text>
+    <!-- chip the G -->
+    <rect x="424" y="-42" width="26" height="11" fill="#0a0a0a"/>
+    <rect x="424" y="-42" width="5" height="16" fill="#ff2a4a"/>
+  </g>
+
+  <!-- tagline below -->
+  <text class="tag" x="62" y="382" fill="#f1ede5" opacity="0.92">
+    a browser that's <tspan fill="#f1ede5" opacity="1">wrong</tspan> on purpose.
+  </text>
+
+  <!-- caps small caption listing the techniques, on left panel -->
+  <text class="small" x="62" y="430" fill="#6a6a6a">byte-flipped images · zalgo text · datamoshed video</text>
+
+  <!-- bottom meta on left panel -->
+  <text class="meta" x="62" y="585" fill="#b6ff7a">&gt;_ v0.2.0</text>
+  <text class="meta" x="190" y="585" fill="#f1ede5" opacity="0.7">linux · macOS · windows · MIT</text>
+
+  <!-- thin acid-green vertical rule between panels -->
+  <rect x="640" y="40" width="1" height="550" fill="#b6ff7a" opacity="0.5"/>
+  <rect x="640" y="40" width="1" height="20" fill="#ff2a4a"/>
+  <rect x="640" y="570" width="1" height="20" fill="#33e0ff"/>
+
+  <!-- RIGHT: subtle bottom fade for url readability -->
+  <rect x="640" y="0" width="560" height="630" fill="url(#rightfade)"/>
+
+  <!-- url label at bottom-right corner of right panel -->
+  <text class="meta" x="1170" y="605" text-anchor="end" fill="#f1ede5" opacity="0.85">willbearfruits.github.io/wrong</text>
+
+  <!-- scanlines last, over everything -->
+  <rect width="1200" height="630" fill="url(#scan)"/>
+</svg>

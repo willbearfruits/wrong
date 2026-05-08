@@ -31,6 +31,7 @@
     "start:cpu": "electron . --cpu",
     "start:debug": "WRONG_DEBUG=1 electron .",
     "icons": "rsvg-convert -w 1024 -h 1024 assets/icon.svg -o build/icon.png && rsvg-convert -w 512 -h 512 assets/icon.svg -o build/icon-512.png && rsvg-convert -w 256 -h 256 assets/icon.svg -o build/icon-256.png && rsvg-convert -w 128 -h 128 assets/icon.svg -o build/icon-128.png && rsvg-convert -w 64 -h 64 assets/icon.svg -o build/icon-64.png",
+    "og": "convert docs/screenshots/wiki-heavy.png -resize 1200x -gravity center -extent 1200x630 -evaluate Multiply 0.85 -modulate 100,135,100 /tmp/og-bg.png && rsvg-convert -w 1200 -h 630 assets/og-overlay.svg -o /tmp/og-fg.png && convert /tmp/og-bg.png /tmp/og-fg.png -compose over -composite docs/og.png && rm /tmp/og-bg.png /tmp/og-fg.png",
     "dist": "npm run icons && electron-builder --publish never",
     "dist:linux": "npm run icons && electron-builder --linux --publish never",
     "dist:mac": "npm run icons && electron-builder --mac --publish never",
