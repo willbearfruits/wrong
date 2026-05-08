@@ -346,12 +346,22 @@ app.whenReady().then(() => {
   });
   ipcMain.on('relaunch', (_e, mode) => {
     persist();
-    // process.argv = [electron-binary, app-path, ...flags]
-    // We want to preserve the app path; only swap the --cpu flag.
-    const base = process.argv.slice(1).filter(a => a !== '--cpu');
-    const args = mode === 'cpu' ? [...base, '--cpu'] : base;
-    app.relaunch({ args });
-    app.exit(0);
+    const cpuFlag = mode === 'cpu' ? ['--cpu'] : [];
+    // AppImage / portable .exe both extract to a temp dir that dies when
+    // the parent process exits — so relaunching against process.execPath
+    // points at a path that no longer exists by the time the child spawns.
+    // electron-builder sets these env vars to the persistent launcher path.
+    const launcher = process.env.APPIMAGE || process.env.PORTABLE_EXECUTABLE_FILE;
+    let opts;
+    if (launcher) {
+      opts = { execPath: launcher, args: cpuFlag };
+    } else {
+      // Dev / installed: process.argv = [electron-bin, app-path, ...flags]
+      const base = process.argv.slice(1).filter(a => a !== '--cpu');
+      opts = { args: [...base, ...cpuFlag] };
+    }
+    try { app.relaunch(opts); } catch (e) { if (DEBUG) console.warn('[GB] relaunch failed:', e); }
+    app.quit();
   });
   ipcMain.handle('get-mode', () => process.argv.includes('--cpu') ? 'cpu' : 'gpu');
 
