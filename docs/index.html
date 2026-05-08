@@ -87,6 +87,30 @@
   .btn.primary:hover { background: var(--fg); color: #000; }
   .btn.primary:hover .arr { color: #000; }
 
+  /* Per-OS download row */
+  .dlrow { display: flex; gap: 12px; justify-content: center;
+           margin-top: 32px; flex-wrap: wrap; }
+  .dl { display: flex; flex-direction: column; align-items: flex-start;
+        gap: 6px; padding: 14px 18px; min-width: 180px;
+        background: transparent; color: var(--bone);
+        border: 1px solid var(--dim2); text-decoration: none;
+        font-family: inherit; transition: border-color 120ms, background 120ms; position: relative; }
+  .dl:hover { border-color: var(--bone); }
+  .dl .os { font-size: 14px; letter-spacing: 0.5px; }
+  .dl .arch { font-size: 11px; color: var(--muted); letter-spacing: 0.3px; }
+  .dl .arr { position: absolute; right: 14px; top: 14px;
+             color: var(--fg); transition: color 120ms, transform 120ms; }
+  .dl:hover .arr { color: var(--warn); transform: translateY(2px); }
+  .dl.current { border-color: var(--fg); background: rgba(182,255,122,0.04); }
+  .dl.current .os::after { content: " · your os"; color: var(--fg); font-size: 11px; }
+
+  .dlmore { text-align: center; margin-top: 14px; font-size: 11px;
+            color: var(--muted); letter-spacing: 0.3px; }
+  .dlmore a { color: var(--muted); border-bottom: 1px dotted var(--dim2);
+              padding-bottom: 1px; text-decoration: none; transition: color 120ms; }
+  .dlmore a:hover { color: var(--bone); border-bottom-color: var(--bone); }
+  .dlmore .sep { color: var(--dim2); margin: 0 8px; }
+
   .versionline {
     color: var(--muted); font-size: 12px;
     letter-spacing: 0.4px;
@@ -186,7 +210,8 @@
     background: var(--bg2);
     border: 1px solid var(--dim2);
     padding: 0;
-    max-width: 720px; margin: 0 auto;
+    max-width: 720px; margin: 0 auto 14px;
+    transition: border-color 120ms;
   }
   .term .bar {
     display: flex; align-items: center; gap: 6px;
@@ -264,18 +289,38 @@
     </svg>
     <p class="tag">a browser that's <em>wrong</em> on purpose.</p>
 
-    <div class="ctas">
-      <a class="btn primary" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0.AppImage" download>
-        download <span class="arr">→</span> <span style="color:var(--muted);">wrong-0.2.0.AppImage</span>
+    <div class="dlrow" id="dlrow">
+      <a class="dl" data-os="linux" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0.AppImage" download>
+        <span class="os">linux</span>
+        <span class="arch">x86_64 · AppImage</span>
+        <span class="arr">↓</span>
       </a>
-      <a class="btn" href="https://github.com/willbearfruits/wrong">
-        github <span class="arr">→</span>
+      <a class="dl" data-os="mac" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0-arm64.dmg" download>
+        <span class="os">macOS</span>
+        <span class="arch">apple silicon · dmg</span>
+        <span class="arr">↓</span>
       </a>
+      <a class="dl" data-os="win" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-Setup-0.2.0.exe" download>
+        <span class="os">windows</span>
+        <span class="arch">x64 · setup.exe</span>
+        <span class="arr">↓</span>
+      </a>
+    </div>
+
+    <div class="dlmore">
+      <a href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0.dmg">macOS intel</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/willbearfruits/wrong/releases/download/v0.2.0/WRONG-0.2.0.exe">windows portable</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/willbearfruits/wrong/releases/tag/v0.2.0">all artifacts</a>
+      <span class="sep">·</span>
+      <a href="https://github.com/willbearfruits/wrong">source</a>
     </div>
 
     <div class="versionline">
       <span class="p">&gt;_</span> v0.2.0
-      <span class="sep">·</span> linux x86_64
+      <span class="sep">·</span> linux · macOS · windows
+      <span class="sep">·</span> unsigned
       <span class="sep">·</span> MIT
     </div>
   </div>
@@ -356,13 +401,35 @@
 <section id="install">
   <div class="wrap">
     <h2 class="sect">install</h2>
-    <div class="term">
+    <div class="term" id="install-linux">
       <div class="bar">
         <div class="lights"><span></span><span></span><span></span></div>
-        <span>~/Downloads — bash</span>
+        <span>linux — bash</span>
       </div>
-<pre><span class="cm"># make it executable, run it.</span>
-<span class="pr">$</span> chmod +x WRONG-0.2.0.AppImage &amp;&amp; ./WRONG-0.2.0.AppImage</pre>
+<pre><span class="cm"># make it executable, run it. no installer, no daemon.</span>
+<span class="pr">$</span> chmod +x WRONG-0.2.0.AppImage
+<span class="pr">$</span> ./WRONG-0.2.0.AppImage</pre>
+    </div>
+
+    <div class="term" id="install-mac">
+      <div class="bar">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <span>macOS — terminal</span>
+      </div>
+<pre><span class="cm"># open the dmg, drag to /Applications.</span>
+<span class="cm"># first launch is blocked by Gatekeeper — bypass with:</span>
+<span class="pr">$</span> xattr -d com.apple.quarantine /Applications/WRONG.app
+<span class="cm"># or: right-click → Open → Open (once).</span></pre>
+    </div>
+
+    <div class="term" id="install-win">
+      <div class="bar">
+        <div class="lights"><span></span><span></span><span></span></div>
+        <span>windows — powershell</span>
+      </div>
+<pre><span class="cm"># run the installer. SmartScreen will warn — click "More info" → "Run anyway".</span>
+<span class="cm"># or use the portable .exe — no install, just launch.</span>
+<span class="pr">&gt;</span> .\WRONG-Setup-0.2.0.exe</pre>
     </div>
   </div>
 </section>
@@ -377,5 +444,28 @@
   </div>
 </footer>
 
+<script>
+(function () {
+  // Detect OS to highlight the user's matching download button + install block.
+  var ua = (navigator.userAgent || '').toLowerCase();
+  var p = (navigator.platform || '').toLowerCase();
+  var os = 'linux';
+  if (/mac|iphone|ipad/.test(ua) || /mac|iphone/.test(p)) os = 'mac';
+  else if (/windows|win32|win64/.test(ua) || /win/.test(p)) os = 'win';
+
+  var match = document.querySelector('.dl[data-os="' + os + '"]');
+  if (match) match.classList.add('current');
+
+  // Reorder so the matching download is first
+  var row = document.getElementById('dlrow');
+  if (row && match && match !== row.firstElementChild) {
+    row.insertBefore(match, row.firstElementChild);
+  }
+
+  // Highlight matching install block
+  var ib = document.getElementById('install-' + os);
+  if (ib) ib.style.borderColor = 'var(--bone)';
+})();
+</script>
 </body>
 </html>

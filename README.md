@@ -8,14 +8,38 @@ WRONG is an Electron-based web browser that deliberately corrupts what it shows 
 
 ## download
 
-Linux x86_64 AppImage from the [Releases](https://github.com/willbearfruits/wrong/releases) page.
+From the [Releases](https://github.com/willbearfruits/wrong/releases) page:
+
+| os | file | size |
+|---|---|---|
+| **Linux x86_64** | `WRONG-0.2.0.AppImage` | ~103 MB |
+| **macOS Apple Silicon** | `WRONG-0.2.0-arm64.dmg` | ~110 MB |
+| **macOS Intel** | `WRONG-0.2.0.dmg` | ~115 MB |
+| **Windows x64 installer** | `WRONG-Setup-0.2.0.exe` | ~80 MB |
+| **Windows x64 portable** | `WRONG-0.2.0.exe` | ~80 MB |
+
+### Linux
 
 ```bash
 chmod +x WRONG-0.2.0.AppImage
 ./WRONG-0.2.0.AppImage
 ```
 
-No installer. No daemon. Settings live in `~/.config/WRONG/`.
+### macOS
+
+Builds are **unsigned** — Gatekeeper will block the first launch.
+
+```bash
+# after copying WRONG to /Applications:
+xattr -d com.apple.quarantine /Applications/WRONG.app
+# or right-click → Open → Open (once).
+```
+
+### Windows
+
+SmartScreen will show "Unrecognized app" because the build is unsigned. Click **More info → Run anyway**. Then either run the installer (Start menu shortcut + uninstaller) or just double-click the portable `.exe`.
+
+Settings live in your platform's standard app-data directory (`~/.config/WRONG/` on Linux, `~/Library/Application Support/WRONG/` on macOS, `%APPDATA%\WRONG\` on Windows).
 
 ## what it does
 
