@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WRONG — a browser that's wrong on purpose</title>
-<meta name="description" content="A deliberately broken browser. Byte-flips JPEG/PNG/WebP responses before the decoder sees them, pours zalgo into every text node, datamoshes video with frame-level motion warping. Linux, macOS, Windows. MIT, no telemetry.">
+<meta name="description" content="A deliberately broken browser. Byte-flips JPEG/PNG/WebP responses before the decoder sees them, pours zalgo into every text node, datamoshes video with frame-level motion warping. Linux and Windows. MIT, no telemetry.">
 <meta name="theme-color" content="#0a0a0a">
 <meta name="author" content="willbearfruits">
 <meta name="keywords" content="glitch browser, datamosh, zalgo, electron, art browser, broken browser, JPEG glitch, image corruption, creative coding, internet art, motion warping, chromatic aberration, scanlines, vhs, web art">
@@ -20,7 +20,7 @@
 <meta property="og:site_name" content="WRONG">
 <meta property="og:url" content="https://willbearfruits.github.io/wrong/">
 <meta property="og:title" content="WRONG — a browser that's wrong on purpose">
-<meta property="og:description" content="A deliberately broken browser. Byte-flips images before they decode, pours zalgo into every text node, datamoshes video. Linux, macOS, Windows. MIT.">
+<meta property="og:description" content="A deliberately broken browser. Byte-flips images before they decode, pours zalgo into every text node, datamoshes video. Linux and Windows. MIT.">
 <meta property="og:image" content="https://willbearfruits.github.io/wrong/og.png">
 <meta property="og:image:secure_url" content="https://willbearfruits.github.io/wrong/og.png">
 <meta property="og:image:type" content="image/png">
@@ -33,7 +33,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:url" content="https://willbearfruits.github.io/wrong/">
 <meta name="twitter:title" content="WRONG — a browser that's wrong on purpose">
-<meta name="twitter:description" content="A deliberately broken browser. Byte-flips images before they decode, pours zalgo into every text node, datamoshes video. Linux, macOS, Windows. MIT.">
+<meta name="twitter:description" content="A deliberately broken browser. Byte-flips images before they decode, pours zalgo into every text node, datamoshes video. Linux and Windows. MIT.">
 <meta name="twitter:image" content="https://willbearfruits.github.io/wrong/og.png">
 <meta name="twitter:image:alt" content="The WRONG wordmark with chromatic aberration">
 
@@ -47,7 +47,7 @@
   "description": "A deliberately broken Electron-based web browser. Byte-flips JPEG/PNG/WebP responses before the decoder sees them, pours zalgo combining diacritics into every visible text node, datamoshes video with frame-level block-matched motion warping. Intended as an art tool, not for productivity.",
   "applicationCategory": "BrowserApplication",
   "applicationSubCategory": "Web Browser",
-  "operatingSystem": "Linux, macOS, Windows",
+  "operatingSystem": "Linux, Windows",
   "url": "https://willbearfruits.github.io/wrong/",
   "downloadUrl": "https://github.com/willbearfruits/wrong/releases",
   "softwareVersion": "0.2.1",
@@ -364,11 +364,6 @@
         <span class="arch">x86_64 · AppImage</span>
         <span class="arr">↓</span>
       </a>
-      <a class="dl" data-os="mac" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.1/WRONG-0.2.1-arm64.dmg" download>
-        <span class="os">macOS</span>
-        <span class="arch">apple silicon · dmg</span>
-        <span class="arr">↓</span>
-      </a>
       <a class="dl" data-os="win" href="https://github.com/willbearfruits/wrong/releases/download/v0.2.1/WRONG-Setup-0.2.1.exe" download>
         <span class="os">windows</span>
         <span class="arch">x64 · setup.exe</span>
@@ -377,8 +372,6 @@
     </div>
 
     <div class="dlmore">
-      <a href="https://github.com/willbearfruits/wrong/releases/download/v0.2.1/WRONG-0.2.1.dmg">macOS intel</a>
-      <span class="sep">·</span>
       <a href="https://github.com/willbearfruits/wrong/releases/download/v0.2.1/WRONG-0.2.1.exe">windows portable</a>
       <span class="sep">·</span>
       <a href="https://github.com/willbearfruits/wrong/releases/tag/v0.2.1">all artifacts</a>
@@ -388,7 +381,7 @@
 
     <div class="versionline">
       <span class="p">&gt;_</span> v0.2.1
-      <span class="sep">·</span> linux · macOS · windows
+      <span class="sep">·</span> linux · windows
       <span class="sep">·</span> unsigned
       <span class="sep">·</span> MIT
     </div>
@@ -480,17 +473,6 @@
 <span class="pr">$</span> ./WRONG-0.2.1.AppImage</pre>
     </div>
 
-    <div class="term" id="install-mac">
-      <div class="bar">
-        <div class="lights"><span></span><span></span><span></span></div>
-        <span>macOS — terminal</span>
-      </div>
-<pre><span class="cm"># open the dmg, drag to /Applications.</span>
-<span class="cm"># first launch is blocked by Gatekeeper — bypass with:</span>
-<span class="pr">$</span> xattr -d com.apple.quarantine /Applications/WRONG.app
-<span class="cm"># or: right-click → Open → Open (once).</span></pre>
-    </div>
-
     <div class="term" id="install-win">
       <div class="bar">
         <div class="lights"><span></span><span></span><span></span></div>
@@ -519,8 +501,7 @@
   var ua = (navigator.userAgent || '').toLowerCase();
   var p = (navigator.platform || '').toLowerCase();
   var os = 'linux';
-  if (/mac|iphone|ipad/.test(ua) || /mac|iphone/.test(p)) os = 'mac';
-  else if (/windows|win32|win64/.test(ua) || /win/.test(p)) os = 'win';
+  if (/windows|win32|win64/.test(ua) || /win/.test(p)) os = 'win';
 
   var match = document.querySelector('.dl[data-os="' + os + '"]');
   if (match) match.classList.add('current');

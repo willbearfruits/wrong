@@ -5,7 +5,7 @@
 ![WRONG on Wikipedia at heavy intensity — partial JPEG decode + heavy zalgo text](docs/screenshots/wiki-heavy.png)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-b6ff7a.svg?style=flat-square&labelColor=0a0a0a)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platforms-linux%20·%20macOS%20·%20windows-f1ede5?style=flat-square&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
+[![Platforms](https://img.shields.io/badge/platforms-linux%20·%20windows-f1ede5?style=flat-square&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
 [![Latest release](https://img.shields.io/github/v/release/willbearfruits/wrong?include_prereleases&style=flat-square&color=33e0ff&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
 [![Downloads](https://img.shields.io/github/downloads/willbearfruits/wrong/total?style=flat-square&color=ff2a4a&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/releases)
 [![Stars](https://img.shields.io/github/stars/willbearfruits/wrong?style=flat-square&color=b6ff7a&labelColor=0a0a0a)](https://github.com/willbearfruits/wrong/stargazers)
@@ -39,8 +39,6 @@ From the [Releases](https://github.com/willbearfruits/wrong/releases) page:
 | os | file | size |
 |---|---|---|
 | **Linux x86_64** | `WRONG-0.2.1.AppImage` | ~103 MB |
-| **macOS Apple Silicon** | `WRONG-0.2.1-arm64.dmg` | ~110 MB |
-| **macOS Intel** | `WRONG-0.2.1.dmg` | ~115 MB |
 | **Windows x64 installer** | `WRONG-Setup-0.2.1.exe` | ~80 MB |
 | **Windows x64 portable** | `WRONG-0.2.1.exe` | ~80 MB |
 
@@ -51,21 +49,11 @@ chmod +x WRONG-0.2.1.AppImage
 ./WRONG-0.2.1.AppImage
 ```
 
-### macOS
-
-Builds are **unsigned** — Gatekeeper will block the first launch.
-
-```bash
-# after copying WRONG to /Applications:
-xattr -d com.apple.quarantine /Applications/WRONG.app
-# or right-click → Open → Open (once).
-```
-
 ### Windows
 
 SmartScreen will show "Unrecognized app" because the build is unsigned. Click **More info → Run anyway**. Then either run the installer (Start menu shortcut + uninstaller) or just double-click the portable `.exe`.
 
-Settings live in your platform's standard app-data directory (`~/.config/WRONG/` on Linux, `~/Library/Application Support/WRONG/` on macOS, `%APPDATA%\WRONG\` on Windows).
+Settings live in your platform's standard app-data directory (`~/.config/WRONG/` on Linux, `%APPDATA%\WRONG\` on Windows).
 
 ## what it does
 
