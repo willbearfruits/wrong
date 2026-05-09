@@ -38,15 +38,15 @@ From the [Releases](https://github.com/willbearfruits/wrong/releases) page:
 
 | os | file | size |
 |---|---|---|
-| **Linux x86_64** | `WRONG-0.2.1.AppImage` | ~103 MB |
-| **Windows x64 installer** | `WRONG-Setup-0.2.1.exe` | ~80 MB |
-| **Windows x64 portable** | `WRONG-0.2.1.exe` | ~80 MB |
+| **Linux x86_64** | `WRONG-0.2.2.AppImage` | ~103 MB |
+| **Windows x64 installer** | `WRONG-Setup-0.2.2.exe` | ~80 MB |
+| **Windows x64 portable** | `WRONG-0.2.2.exe` | ~80 MB |
 
 ### Linux
 
 ```bash
-chmod +x WRONG-0.2.1.AppImage
-./WRONG-0.2.1.AppImage
+chmod +x WRONG-0.2.2.AppImage
+./WRONG-0.2.2.AppImage
 ```
 
 ### Windows
@@ -111,7 +111,7 @@ WRONG_DEBUG=1 npm start
 
 ```bash
 npm run dist:linux
-# produces ./dist/WRONG-0.2.1.AppImage
+# produces ./dist/WRONG-0.2.2.AppImage
 ```
 
 `rsvg-convert` must be on PATH for icon generation: `apt install librsvg2-bin`.

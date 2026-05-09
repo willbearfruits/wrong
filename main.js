@@ -44,6 +44,15 @@ if (process.argv.includes('--cpu')) {
   app.commandLine.appendSwitch('disable-gpu-compositing');
 }
 
+// On Windows, hardware video decode keeps decoded frames in a GPU texture path
+// that drawImage(video) to a 2D canvas can't reliably read back — frame-level
+// mosh sees black/empty pixels and renders nothing. Forcing software video
+// decode lets the canvas pull real pixels.
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-accelerated-video-decode');
+  app.commandLine.appendSwitch('disable-features', 'UseDXGIMapStaging');
+}
+
 let win, chrome;
 const tabs = [];           // { id, view, title, url }
 let activeId = null;
