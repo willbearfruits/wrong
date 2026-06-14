@@ -133,49 +133,98 @@ function mangleGeneric(bytes, intensity, skipFront) {
 // is structural and one bit kills the stream.
 function mangleMP4(bytes, intensity) {
   let off = 0;
-  let touched = false;
   while (off + 8 <= bytes.length) {
     let size = (bytes[off] * 0x1000000) + (bytes[off + 1] << 16) + (bytes[off + 2] << 8) + bytes[off + 3];
     const type = String.fromCharCode(bytes[off + 4], bytes[off + 5], bytes[off + 6], bytes[off + 7]);
     let dataStart = off + 8;
     if (size === 1) {
-      // 64-bit size at off+8; we only care about low 32 bits
-      const lo = (bytes[off + 12] * 0x1000000) + (bytes[off + 13] << 16) + (bytes[off + 14] << 8) + bytes[off + 15];
-      size = lo;
+      // 64-bit size: 8 bytes at off+8. Bail if the header doesn't fit (reading
+      // past the end would yield undefined -> NaN and silently abort the walk).
+      if (off + 16 > bytes.length) break;
+      // A non-zero high dword means > 4 GiB, impossible under main.js's 4 MB AV
+      // cap, so treat it as malformed rather than truncating to the low dword.
+      const hi = (bytes[off + 8] * 0x1000000) + (bytes[off + 9] << 16) + (bytes[off + 10] << 8) + bytes[off + 11];
+      if (hi !== 0) break;
+      size = (bytes[off + 12] * 0x1000000) + (bytes[off + 13] << 16) + (bytes[off + 14] << 8) + bytes[off + 15];
       dataStart = off + 16;
     }
     if (size < 8) break;
-    if (size === 0) { off = bytes.length; break; }
     const end = Math.min(off + size, bytes.length);
     if (type === 'mdat') {
       // Skip first ~32 bytes of mdat to clear NAL start codes / OBU headers
       const flipStart = Math.min(dataStart + 32, end);
       for (let i = flipStart; i < end; i++) {
-        if (Math.random() < intensity) {
-          bytes[i] ^= randomBitFlip();
-          touched = true;
-        }
+        if (Math.random() < intensity) bytes[i] ^= randomBitFlip();
       }
     }
     if (end <= off) break;
     off = end;
   }
-  return touched;
 }
 
-// WebM / Matroska heuristic: Cluster element ID is 0x1F43B675. Flip only
-// AFTER the first Cluster start, never before (that would kill init data).
+// EBML variable-length integer (element data size). Returns [value, byteLen]
+// or null if malformed / out of range. The length marker bit is stripped.
+function readVint(bytes, pos) {
+  const first = bytes[pos];
+  if (first === undefined || first === 0) return null;
+  let len = 1, mask = 0x80;
+  while (len <= 8 && !(first & mask)) { len++; mask >>= 1; }
+  if (len > 8 || pos + len > bytes.length) return null;
+  let value = first & (mask - 1);
+  for (let i = 1; i < len; i++) value = value * 256 + bytes[pos + i];
+  return [value, len];
+}
+
+// EBML element ID (kept verbatim, marker bits included). Returns [id, byteLen].
+function readEbmlId(bytes, pos) {
+  const first = bytes[pos];
+  if (first === undefined || first === 0) return null;
+  let len = 1, mask = 0x80;
+  while (len <= 4 && !(first & mask)) { len++; mask >>= 1; }
+  if (len > 4 || pos + len > bytes.length) return null;
+  let id = 0;
+  for (let i = 0; i < len; i++) id = id * 256 + bytes[pos + i];
+  return [id, len];
+}
+
+// WebM / Matroska: find the first Cluster (ID 1F 43 B6 75), then walk its child
+// elements and corrupt ONLY the encoded-frame payload of (Simple)Block elements.
+// Flipping element IDs or size vints desyncs the demuxer and kills the whole
+// stream; leaving structure intact yields the intended partial-render smear.
 function mangleWebM(bytes, intensity) {
-  let cluster = -1;
-  for (let i = 0; i < bytes.length - 3; i++) {
-    if (bytes[i] === 0x1F && bytes[i + 1] === 0x43 && bytes[i + 2] === 0xB6 && bytes[i + 3] === 0x75) {
-      cluster = i + 16; // skip past the cluster size vint + a margin
-      break;
-    }
+  let i = -1;
+  for (let p = 0; p < bytes.length - 4; p++) {
+    if (bytes[p] === 0x1F && bytes[p + 1] === 0x43 && bytes[p + 2] === 0xB6 && bytes[p + 3] === 0x75) { i = p; break; }
   }
-  if (cluster < 0) return;
-  for (let i = cluster; i < bytes.length; i++) {
-    if (Math.random() < intensity * 0.6) bytes[i] ^= randomBitFlip();
+  if (i < 0) return;
+  let pos = i + 4;
+  const clusterSize = readVint(bytes, pos);
+  if (!clusterSize) return;
+  pos += clusterSize[1];
+  // Unknown/over-long sizes run to EOF; a sane bounded size ends the cluster.
+  let end = bytes.length;
+  if (clusterSize[0] > 0 && pos + clusterSize[0] <= bytes.length) end = pos + clusterSize[0];
+
+  let guard = 0;
+  while (pos < end && guard++ < 200000) {
+    const idR = readEbmlId(bytes, pos);
+    if (!idR) break;
+    const sizeR = readVint(bytes, pos + idR[1]);
+    if (!sizeR) break;
+    const dataStart = pos + idR[1] + sizeR[1];
+    let dataEnd = dataStart + sizeR[0];
+    if (dataEnd > end || dataEnd < dataStart) dataEnd = end; // truncated / unknown
+    if (idR[0] === 0xA3 || idR[0] === 0xA1) { // SimpleBlock / Block
+      // Header = track-number vint + 2-byte timecode + 1 flags byte. Skip it so
+      // only the codec frame bytes get flipped.
+      const tn = readVint(bytes, dataStart);
+      const hdr = (tn ? tn[1] : 1) + 3;
+      for (let j = dataStart + hdr; j < dataEnd; j++) {
+        if (Math.random() < intensity * 0.6) bytes[j] ^= randomBitFlip();
+      }
+    }
+    if (dataEnd <= pos) break; // no forward progress -> stop
+    pos = dataEnd;
   }
 }
 

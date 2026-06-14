@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('gb', {
   setAudioGlitch: (v) => ipcRenderer.send('set-audio-glitch', v),
   setVideoFx: (v) => ipcRenderer.send('set-video-fx', v),
   applyProfile: (p) => ipcRenderer.send('apply-profile', p),
+  applyProfileByName: (name) => ipcRenderer.send('apply-profile-by-name', String(name || '')),
   relaunch: (mode) => ipcRenderer.send('relaunch', mode),
   getMode: () => ipcRenderer.invoke('get-mode'),
   chromeExpanded: (expanded) => ipcRenderer.send('chrome-expanded', expanded),

@@ -3,6 +3,6 @@ node_modules/
 /dist/
 .env
 *.AppImage
-/build/icon*.png
 /screenshots/
 /screenshot.js
+.run-*.log

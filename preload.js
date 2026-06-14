@@ -12,9 +12,9 @@ try {
 } catch {}
 
 // ─── Zalgo ──────────────────────────────────────────────────────────────
-const ZALGO_UP = ['̍','̎','̄','̅','̿','̑','̆','̐','͒','͗','͑','̇','̈','̊','͂','̓','̈́','͊','͋','͌','̃','̂','̌','͐','̀','́','̋','̏','̒','̓','̔','̽','̉','ͣ','ͤ','ͥ','ͦ','ͧ','ͨ','ͩ','ͪ','ͫ','ͬ','ͭ','ͮ','ͯ','̾','͛','͆','̚'];
+const ZALGO_UP = ['̍','̎','̄','̅','̿','̑','̆','̐','͒','͗','͑','̇','̈','̊','͂','̓','̈́','͊','͋','͌','̃','̂','̌','͐','̀','́','̋','̏','̒','̔','̽','̉','ͣ','ͤ','ͥ','ͦ','ͧ','ͨ','ͩ','ͪ','ͫ','ͬ','ͭ','ͮ','ͯ','̾','͛','͆','̚'];
 const ZALGO_DOWN = ['̖','̗','̘','̙','̜','̝','̞','̟','̠','̤','̥','̦','̩','̪','̫','̬','̭','̮','̯','̰','̱','̲','̳','̹','̺','̻','̼','ͅ','͇','͈','͉','͍','͎','͓','͔','͕','͖','͙','͚','̣'];
-const ZALGO_MID = ['̕','̛','̀','́','͘','̡','̢','̧','̨','̴','̵','̶','͏','͡','҉'];
+const ZALGO_MID = ['̕','̛','͘','̡','̢','̧','̨','̴','̵','̶','͏','͡','҉'];
 const ZALGO_MARK = '​⁣';
 
 let zalgoEnabled = true;
@@ -42,8 +42,9 @@ function processNode(node) {
   if (!v || !v.trim()) return;
   if (v.startsWith(ZALGO_MARK)) return;
   const parent = node.parentElement;
-  if (parent && /^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(parent.tagName)) return;
-  if (parent && parent.isContentEditable) return;
+  if (!parent) return; // detached/orphan text node — nothing visible to glitch
+  if (/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/.test(parent.tagName)) return;
+  if (parent.isContentEditable) return;
   node.nodeValue = ZALGO_MARK + zalgoize(v);
 }
 
@@ -62,18 +63,59 @@ function walkText(root) {
 // put almost all visible text inside open shadow roots, which TreeWalker
 // won't traverse on its own.
 const observedRoots = new WeakSet();
+const rootObservers = new Map(); // root -> MutationObserver, so dead roots can be disconnected
+
+// Tear down our per-video resources for any <video> in a removed subtree, so
+// the canvas/interval/observer/buffers don't leak when SPAs churn media.
+function teardownVideosIn(node) {
+  if (!node || node.nodeType !== 1) return;
+  if (node.tagName === 'VIDEO') teardownVideo(node);
+  node.querySelectorAll && node.querySelectorAll('video').forEach(teardownVideo);
+}
+
 function observeRoot(root) {
   if (!root || observedRoots.has(root)) return;
   observedRoots.add(root);
-  new MutationObserver((muts) => {
+  const obs = new MutationObserver((muts) => {
     for (const m of muts) {
       for (const n of m.addedNodes) {
         if (n.nodeType === 1) walkAll(n);
         else if (n.nodeType === 3) processNode(n);
       }
+      for (const n of m.removedNodes) teardownVideosIn(n);
       if (m.type === 'characterData') processNode(m.target);
     }
-  }).observe(root, { childList: true, subtree: true, characterData: true });
+  });
+  obs.observe(root, { childList: true, subtree: true, characterData: true });
+  rootObservers.set(root, obs);
+}
+
+// Disconnect observers whose root (shadow host) has left the document. Cheap:
+// O(observed roots), no DOM query — safe to run on a slow forever cadence.
+function sweepDeadRoots() {
+  for (const [root, obs] of rootObservers) {
+    const host = root.host;
+    const dead = host ? !host.isConnected : root.isConnected === false;
+    if (dead) { try { obs.disconnect(); } catch {} rootObservers.delete(root); observedRoots.delete(root); }
+  }
+}
+
+// Patch attachShadow ONCE so every open shadow root a page creates is observed
+// immediately. preload runs before page scripts, so this catches them all and
+// removes the need to poll the whole document for shadow roots forever.
+function patchAttachShadow() {
+  try {
+    const proto = Element.prototype;
+    const orig = proto.attachShadow;
+    if (!orig || orig._gbPatched) return;
+    const patched = function (init) {
+      const r = orig.call(this, init);
+      try { if (r && (!init || init.mode !== 'closed')) { observeRoot(r); walkAll(r); } } catch {}
+      return r;
+    };
+    patched._gbPatched = true;
+    proto.attachShadow = patched;
+  } catch {}
 }
 function walkAll(root) {
   if (!root) return;
@@ -252,7 +294,31 @@ function attachMedia(el) {
 // untouched, the codec never sees corruption, and we get true frame-level
 // glitch effects.
 let videoFx = 0;
+let tabActive = true;             // set by main via 'tab-active' IPC
 const videoAttached = new WeakSet();
+const liveVideos = new Set();     // attached videos, so toggling fx on can restart them
+const MOSH_FPS = 30;              // cap mosh work rate regardless of source/display fps
+
+// Free every per-video resource (overlay canvas, sync interval, ResizeObserver,
+// event listeners) when a <video> leaves the DOM. Without this, SPA sites that
+// churn media (YouTube) accumulate zombie 1Hz timers/observers for the page's
+// whole life and pin detached nodes in memory.
+function teardownVideo(videoEl) {
+  liveVideos.delete(videoEl);
+  videoAttached.delete(videoEl);
+  videoEl._gbStop = true;
+  if (videoEl._gbSyncInterval) { clearInterval(videoEl._gbSyncInterval); videoEl._gbSyncInterval = null; }
+  if (videoEl._gbResizeObs) { try { videoEl._gbResizeObs.disconnect(); } catch {} videoEl._gbResizeObs = null; }
+  if (videoEl._gbCanvas) { try { videoEl._gbCanvas.remove(); } catch {} videoEl._gbCanvas = null; }
+  if (videoEl._gbOnReset) {
+    try {
+      videoEl.removeEventListener('loadstart', videoEl._gbOnReset);
+      videoEl.removeEventListener('emptied', videoEl._gbOnReset);
+    } catch {}
+    videoEl._gbOnReset = null;
+  }
+  videoEl._gbRestart = null;
+}
 
 function ensureCanvasOver(videoEl) {
   let canvas = videoEl._gbCanvas;
@@ -308,21 +374,52 @@ const MOSH_BLOCK = 32;
 const MOSH_SEARCH = 6;
 const MOSH_SUBSAMPLE = 8;
 
-// Pre-allocated motion-vector field; resized only on canvas dim change.
-let mvX = null, mvY = null, mvCols = 0, mvRows = 0;
+// Fast seeded PRNG (xorshift32). Replaces Math.random() in the refresh pass —
+// same speckle distribution, a fraction of the cost. Seeded per video.
+function makeRng(seed) {
+  let s = (seed >>> 0) || 0x9e3779b9;
+  return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return s >>> 0; };
+}
 
-function moshFrame(carrier, prev, cur, warped, w, h, intensity) {
+// One pixel buffer + its Uint32 (whole-pixel) view + a reusable ImageData.
+const mkBuf = (sz, w, h) => {
+  const u8 = new Uint8ClampedArray(sz);
+  return { u8, u32: new Uint32Array(u8.buffer), img: new ImageData(u8, w, h) };
+};
+
+// Per-video mosh state: double-buffered carrier/warp (swapped each frame via a
+// flag so the Uint32 views and ImageData wrappers stay valid — zero per-frame
+// allocation), the motion field (no longer a shared global), and the PRNG.
+function makeMoshState(w, h) {
+  const sz = w * h * 4;
+  const cols = Math.ceil(w / MOSH_BLOCK), rows = Math.ceil(h / MOSH_BLOCK);
+  return {
+    w, h, cols, rows,
+    a: mkBuf(sz, w, h), b: mkBuf(sz, w, h),
+    prev: new Uint8ClampedArray(sz),
+    carrierIsA: true,
+    mvX: new Int8Array(cols * rows), mvY: new Int8Array(cols * rows),
+    rng: makeRng((0x9e3779b9 ^ (w << 16) ^ h) >>> 0),
+  };
+}
+
+// Datamosh approximation. The signature of true datamosh is "old pixels get
+// pushed along the NEW frame's motion vectors": estimate motion between the
+// previous and current raw frames, warp the carrier by that field, then refresh
+// a small fraction from the current frame so it doesn't drift to garbage. The
+// slider controls how much the carrier persists vs refreshes. Returns the
+// ImageData to paint (the freshly-warped buffer). Output is identical to the
+// original per-channel version; the speedups are mechanical (uint32 copies,
+// hoisted block lookups, xorshift), not algorithmic.
+function moshFrame(st, cur, intensity) {
+  const w = st.w, h = st.h, cols = st.cols, rows = st.rows;
+  const mvX = st.mvX, mvY = st.mvY, prev = st.prev, rng = st.rng;
+  const carrier = st.carrierIsA ? st.a : st.b;
+  const warped = st.carrierIsA ? st.b : st.a;
+  const cU32 = carrier.u32, wU32 = warped.u32, wU8 = warped.u8;
+  mvX.fill(0); mvY.fill(0);
+
   // Motion estimation (block-matching, sub-sampled, ±SEARCH px).
-  const cols = Math.ceil(w / MOSH_BLOCK);
-  const rows = Math.ceil(h / MOSH_BLOCK);
-  if (cols !== mvCols || rows !== mvRows) {
-    mvX = new Int8Array(cols * rows);
-    mvY = new Int8Array(cols * rows);
-    mvCols = cols; mvRows = rows;
-  } else {
-    mvX.fill(0); mvY.fill(0);
-  }
-
   for (let by = 0; by < rows; by++) {
     for (let bx = 0; bx < cols; bx++) {
       const x0 = bx * MOSH_BLOCK;
@@ -352,69 +449,86 @@ function moshFrame(carrier, prev, cur, warped, w, h, intensity) {
     }
   }
 
-  // Warp carrier into the caller-provided buffer using the motion field.
+  // Warp carrier -> warped via the motion field. dx/dy are constant across each
+  // 32-px block run, so they're hoisted out of the inner loop, and pixels are
+  // copied as single Uint32 words (1 write/px instead of 4). Carrier alpha is
+  // always 255, so the word copy carries correct opacity.
   for (let y = 0; y < h; y++) {
-    const by = (y / MOSH_BLOCK) | 0;
-    const rowMV = by * cols;
-    for (let x = 0; x < w; x++) {
-      const bx = (x / MOSH_BLOCK) | 0;
-      const mvi = rowMV + bx;
-      const sx = x - mvX[mvi];
-      const sy = y - mvY[mvi];
-      const di = (y * w + x) * 4;
-      let si;
-      if (sx >= 0 && sy >= 0 && sx < w && sy < h) {
-        si = (sy * w + sx) * 4;
-      } else {
-        si = di;
+    const yw = y * w;
+    const rowMV = ((y / MOSH_BLOCK) | 0) * cols;
+    for (let bx = 0; bx < cols; bx++) {
+      const dx = mvX[rowMV + bx], dy = mvY[rowMV + bx];
+      const x0 = bx * MOSH_BLOCK, x1 = Math.min(x0 + MOSH_BLOCK, w);
+      const sy = y - dy, syw = sy * w, syIn = sy >= 0 && sy < h;
+      for (let x = x0; x < x1; x++) {
+        const di = yw + x, sx = x - dx;
+        wU32[di] = (syIn && sx >= 0 && sx < w) ? cU32[syw + sx] : cU32[di];
       }
-      warped[di]     = carrier[si];
-      warped[di + 1] = carrier[si + 1];
-      warped[di + 2] = carrier[si + 2];
-      warped[di + 3] = 255;
     }
   }
 
-  // Refresh a small fraction from current frame to prevent total drift.
+  // Refresh a small fraction from the current frame to prevent total drift.
   // intensity 1.0 = ~2% refresh (heavy mosh), 0.0 = 100% refresh (no mosh).
   const refreshRate = Math.max(0.02, 1 - intensity);
-  for (let i = 0; i < warped.length; i += 4) {
-    if (Math.random() < refreshRate) {
-      warped[i]     = cur[i];
-      warped[i + 1] = cur[i + 1];
-      warped[i + 2] = cur[i + 2];
+  const thresh = refreshRate >= 1 ? 0xFFFFFFFF : (refreshRate * 4294967296) >>> 0;
+  const n = w * h;
+  for (let p = 0; p < n; p++) {
+    if (rng() < thresh) {
+      const i = p << 2;
+      wU8[i]     = cur[i];
+      wU8[i + 1] = cur[i + 1];
+      wU8[i + 2] = cur[i + 2];
     }
   }
+
+  st.carrierIsA = !st.carrierIsA; // warped becomes next frame's carrier
+  return warped.img;
 }
 
 function attachVideoFx(videoEl) {
   if (videoAttached.has(videoEl)) return;
   videoAttached.add(videoEl);
+  liveVideos.add(videoEl);
+  videoEl._gbStop = false;
   dlog('attachVideoFx', (videoEl.currentSrc || videoEl.src || '').slice(0, 60), 'parent=', videoEl.parentElement?.tagName);
 
   let tainted = false;
   let ctx = null;
-  let carrier = null;
-  let prevSrc = null;
-  let warpBuf = null;
+  let st = null;
   let canvasW = 0, canvasH = 0;
   let seeded = false;
+  let running = false;
+  let lastTs = 0;          // wall-clock of last processed frame (fps cap)
+  let lastMediaTime = -1;  // video.currentTime of last processed frame (rAF freshness)
+  const usingRVFC = !!videoEl.requestVideoFrameCallback;
+  const minDelta = 1000 / MOSH_FPS - 1;
 
-  const tick = () => {
-    if (tainted) return;
-    if (!videoEl.isConnected) return;
+  const schedule = () => {
+    if (videoEl.requestVideoFrameCallback) videoEl.requestVideoFrameCallback(tick);
+    else requestAnimationFrame(tick);
+  };
 
-    const canvas = ensureCanvasOver(videoEl);
-    if (!canvas) {
-      videoEl.requestVideoFrameCallback?.(tick);
+  function tick(now) {
+    if (videoEl._gbStop || tainted) { running = false; return; }
+    if (!videoEl.isConnected) { teardownVideo(videoEl); return; }
+    // Effect off, or this tab isn't the active one: stop the loop entirely
+    // rather than burning a per-frame callback. Restarted on demand (the
+    // video-fx / tab-active IPC handlers call _gbRestart).
+    if (videoFx <= 0 || !tabActive) {
+      if (videoEl._gbCanvas) videoEl._gbCanvas.style.display = 'none';
+      seeded = false;
+      running = false;
       return;
     }
-    if (videoFx <= 0) {
-      canvas.style.display = 'none';
-      // Reset mosh state so a fresh start on re-enable doesn't carry forward
-      // pixels from the previous video.
-      seeded = false;
-    } else if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+    if (document.hidden) { schedule(); return; } // window occluded: idle cheaply
+
+    const ts = now || 0;
+    if (lastTs && ts - lastTs < minDelta) { schedule(); return; } // fps cap
+
+    const canvas = ensureCanvasOver(videoEl);
+    if (!canvas) { schedule(); return; }
+
+    if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
       canvas.style.display = '';
       const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
       // Cap working resolution: motion estimation + warp is O(w*h), so we
@@ -426,49 +540,71 @@ function attachVideoFx(videoEl) {
       if (canvas.width !== w) canvas.width = w;
       if (canvas.height !== h) canvas.height = h;
       if (canvasW !== w || canvasH !== h) {
-        const sz = w * h * 4;
-        carrier = new Uint8ClampedArray(sz);
-        prevSrc = new Uint8ClampedArray(sz);
-        warpBuf = new Uint8ClampedArray(sz);
+        st = makeMoshState(w, h);
         canvasW = w; canvasH = h;
         seeded = false;
       }
       if (!ctx) ctx = canvas.getContext('2d', { willReadFrequently: true });
+      // rAF fallback fires regardless of frame freshness; skip the heavy work
+      // (and avoid churning a paused frame) when currentTime hasn't advanced.
+      // rVFC already only fires on a newly decoded frame, so it never skips.
+      if (!usingRVFC && videoEl.currentTime === lastMediaTime) { schedule(); return; }
       try {
         ctx.drawImage(videoEl, 0, 0, w, h);
         const cur = ctx.getImageData(0, 0, w, h);
         const curData = cur.data;
         if (!seeded) {
-          carrier.set(curData);
-          prevSrc.set(curData);
+          st.a.u8.set(curData);
+          st.b.u8.set(curData);
+          st.prev.set(curData);
+          st.carrierIsA = true;
           ctx.putImageData(cur, 0, 0);
           seeded = true;
         } else {
-          moshFrame(carrier, prevSrc, curData, warpBuf, w, h, videoFx);
-          // Swap carrier <-> warpBuf for zero-alloc rotation.
-          const tmp = carrier; carrier = warpBuf; warpBuf = tmp;
-          prevSrc.set(curData);
-          ctx.putImageData(new ImageData(carrier, w, h), 0, 0);
+          const img = moshFrame(st, curData, videoFx);
+          st.prev.set(curData);
+          ctx.putImageData(img, 0, 0);
         }
+        lastMediaTime = videoEl.currentTime;
+        lastTs = ts;
       } catch (e) {
+        // Tainted frame (DRM/EME blob: or cross-origin) — drawImage threw.
+        // Stop and free the overlay/timers, but stay revivable: a later clean
+        // source on this element (onReset) clears taint and restarts.
         tainted = true;
-        canvas.remove();
+        if (videoEl._gbSyncInterval) { clearInterval(videoEl._gbSyncInterval); videoEl._gbSyncInterval = null; }
+        if (videoEl._gbResizeObs) { try { videoEl._gbResizeObs.disconnect(); } catch {} videoEl._gbResizeObs = null; }
+        if (videoEl._gbCanvas) { try { videoEl._gbCanvas.remove(); } catch {} videoEl._gbCanvas = null; }
+        running = false;
         return;
       }
     }
 
-    if (videoEl.requestVideoFrameCallback) {
-      videoEl.requestVideoFrameCallback(tick);
-    } else {
-      requestAnimationFrame(tick);
-    }
-  };
-
-  if (videoEl.requestVideoFrameCallback) {
-    videoEl.requestVideoFrameCallback(tick);
-  } else {
-    requestAnimationFrame(tick);
+    schedule();
   }
+
+  // A source change (adaptive/shared players reuse one <video>) must re-seed so
+  // the carrier doesn't smear the previous clip across the cut, and must clear
+  // taint so a formerly-DRM element can resume on a readable source.
+  const onReset = () => {
+    tainted = false;
+    seeded = false;
+    lastMediaTime = -1;
+    if (videoFx > 0 && tabActive) start();
+  };
+  videoEl._gbOnReset = onReset;
+  videoEl.addEventListener('loadstart', onReset);
+  videoEl.addEventListener('emptied', onReset);
+
+  function start() {
+    if (running || videoEl._gbStop || tainted) return;
+    if (videoFx <= 0 || !tabActive) return;
+    running = true;
+    schedule();
+  }
+  videoEl._gbRestart = start;
+
+  if (videoFx > 0 && tabActive) start();
 }
 
 function scanMedia(root) {
@@ -486,41 +622,40 @@ function safe(label, fn) {
 
 function periodicScan() {
   // Walk light DOM from documentElement (not just body — covers <head> text
-  // and elements that may be hoisted out of body by the framework).
+  // and elements that may be hoisted out of body by the framework). walkAll
+  // already discovers and observes descendant shadow roots, so the old separate
+  // document-wide querySelectorAll('*') shadow sweep was pure duplication and
+  // has been dropped. New shadow roots are caught by the attachShadow patch.
   safe('walkAll(documentElement)', () => walkAll(document.documentElement));
-  // Pick up shadow roots on already-existing elements (attachShadow doesn't
-  // fire MutationObserver, so we have to poll).
-  safe('shadow-scan', () => {
-    const all = document.querySelectorAll('*');
-    let found = 0;
-    for (const el of all) {
-      try {
-        const sr = el.shadowRoot;
-        if (sr && !observedRoots.has(sr)) {
-          observeRoot(sr);
-          walkAll(sr);
-          found++;
-        }
-      } catch {}
-    }
-    if (found) dlog(`picked up ${found} new shadow root(s)`);
-  });
 }
 
 function start() {
   dlog('preload start', location.href);
+  // Patch attachShadow FIRST so every shadow root the page creates is observed
+  // from birth. This is what lets us stop polling the whole document forever.
+  safe('patchAttachShadow', patchAttachShadow);
   safe('applyFilter', () => applyFilter('none'));
   safe('walkAll initial', () => walkAll(document.documentElement || document.body));
   safe('observeRoot doc', () => observeRoot(document.body || document.documentElement));
-  // Two cadences: fast for the first 10s while a SPA is hydrating, then slow.
+  // Bounded hydration scan: fast for ~10s, a short slow tail, then STOP. Steady
+  // state is covered by the MutationObservers + attachShadow patch, so an
+  // unbounded forever full-document scan is pure waste (it also competed with
+  // the per-frame video mosh on the same thread).
   let ticks = 0;
   const fast = setInterval(() => {
     periodicScan();
     if (++ticks >= 20) {
       clearInterval(fast);
-      setInterval(periodicScan, 2000);
+      let slow = 0;
+      const slowIv = setInterval(() => {
+        periodicScan();
+        if (++slow >= 15) clearInterval(slowIv); // ~30s tail, then done
+      }, 2000);
     }
   }, 500);
+  // Cheap forever sweep (O(observed roots), no DOM query) so observers for
+  // detached shadow hosts get disconnected on long SPA sessions.
+  setInterval(sweepDeadRoots, 15000);
 }
 
 console.log('[GB] preload loaded');
@@ -543,6 +678,19 @@ ipcRenderer.on('audio-glitch', (_e, v) => {
   if (intensityParam) intensityParam.value = v;
 });
 ipcRenderer.on('video-fx', (_e, v) => {
-  console.log('[GB] video-fx ipc:', v);
+  dlog('video-fx ipc:', v);
+  const was = videoFx;
   videoFx = v;
+  // Turning the effect on (0 -> >0): restart the stopped loops for live videos.
+  if (v > 0 && was <= 0 && tabActive) {
+    for (const vid of liveVideos) if (vid._gbRestart) vid._gbRestart();
+  }
+});
+ipcRenderer.on('tab-active', (_e, active) => {
+  tabActive = !!active;
+  // Becoming the active tab again: resume mosh loops (they self-stop when the
+  // tab is parked off-screen so background tabs don't burn CPU).
+  if (tabActive && videoFx > 0) {
+    for (const vid of liveVideos) if (vid._gbRestart) vid._gbRestart();
+  }
 });

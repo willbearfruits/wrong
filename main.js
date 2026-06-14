@@ -19,7 +19,13 @@ function loadSettings() {
 function saveSettings(s) {
   try { fs.mkdirSync(path.dirname(settingsPath()), { recursive: true }); }
   catch {}
-  fs.writeFileSync(settingsPath(), JSON.stringify(s, null, 2));
+  // Write to a temp file then atomically rename, so a crash/kill mid-write can
+  // never leave a half-written settings.json (which loadSettings would treat as
+  // corrupt and silently discard, resetting the user back to defaults).
+  const p = settingsPath();
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(s, null, 2));
+  fs.renameSync(tmp, p);
 }
 
 const defaultSettings = {
@@ -34,7 +40,44 @@ const defaultSettings = {
   profile: 'custom',
 };
 const state = Object.assign({}, defaultSettings, loadSettings() || {});
-const persist = () => saveSettings(state);
+
+// Persist is debounced: dragging a slider fires set-* IPC dozens of times a
+// second, and a synchronous disk write on each blocks the main process. Coalesce
+// into a trailing write, and flush synchronously on quit so nothing is lost.
+let persistTimer = null;
+function persist() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    try { saveSettings(state); } catch (e) { if (DEBUG) console.warn('[GB] persist failed:', e); }
+  }, 400);
+}
+function persistNow() {
+  if (persistTimer) { clearTimeout(persistTimer); persistTimer = null; }
+  try { saveSettings(state); } catch (e) { if (DEBUG) console.warn('[GB] persist failed:', e); }
+}
+
+// Whitelist + clamp a profile object coming from the renderer before it is
+// merged into state. apply-profile would otherwise Object.assign raw input,
+// bypassing every per-setter clamp and letting arbitrary keys reach disk.
+const clamp = (v, lo, hi, dflt) => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return dflt;
+  return n < lo ? lo : n > hi ? hi : n;
+};
+function sanitizeProfile(p) {
+  if (!p || typeof p !== 'object') return {};
+  const out = {};
+  if ('intensity' in p) out.intensity = clamp(p.intensity, 0, 0.2, state.intensity);
+  if ('videoFx' in p) out.videoFx = clamp(p.videoFx, 0, 1, state.videoFx);
+  if ('zalgoIntensity' in p) out.zalgoIntensity = clamp(p.zalgoIntensity, 0, 1, state.zalgoIntensity);
+  if ('audioGlitch' in p) out.audioGlitch = clamp(p.audioGlitch, 0, 1, state.audioGlitch);
+  if ('enabled' in p) out.enabled = !!p.enabled;
+  if ('videoEnabled' in p) out.videoEnabled = !!p.videoEnabled;
+  if ('zalgoEnabled' in p) out.zalgoEnabled = !!p.zalgoEnabled;
+  if ('cssFilter' in p) out.cssFilter = String(p.cssFilter || 'none');
+  return out;
+}
 
 app.setName('WRONG');
 
@@ -73,6 +116,14 @@ function sendTabsToChrome() {
     tabs: tabs.map(t => ({ id: t.id, title: t.title || 'new tab', url: t.url || '' })),
     activeId,
   });
+}
+
+// Tell each tab whether it's the active one, so inactive (parked off-screen)
+// tabs can stop running the per-frame video mosh.
+function broadcastActive() {
+  for (const t of tabs) {
+    try { t.view.webContents.send('tab-active', t.id === activeId); } catch {}
+  }
 }
 
 function layout() {
@@ -126,7 +177,7 @@ function createTab(initialUrl = NEWTAB_URL) {
   };
   wc.on('did-navigate', onNav);
   wc.on('did-navigate-in-page', onNav);
-  wc.on('did-finish-load', () => broadcastGlitch(view));
+  wc.on('did-finish-load', () => { broadcastGlitch(view); wc.send('tab-active', tab.id === activeId); });
   wc.on('before-input-event', handleShortcut);
   if (DEBUG) {
     wc.on('console-message', (_e, _level, message) => {
@@ -144,7 +195,8 @@ function createTab(initialUrl = NEWTAB_URL) {
     // Auto-reload once after a short delay; if it crashes again leave it.
     if (!tab._reloadedAfterCrash) {
       tab._reloadedAfterCrash = true;
-      setTimeout(() => {
+      tab._reloadTimer = setTimeout(() => {
+        tab._reloadTimer = null;
         try { wc.reload(); } catch {}
       }, 500);
     }
@@ -162,12 +214,14 @@ function setActiveTab(id) {
   const t = activeTab();
   if (t) chrome.webContents.send('url-changed', t.url || '');
   sendTabsToChrome();
+  broadcastActive();
 }
 
 function closeTab(id) {
   const idx = tabs.findIndex(t => t.id === id);
   if (idx < 0) return;
   const tab = tabs[idx];
+  if (tab._reloadTimer) { clearTimeout(tab._reloadTimer); tab._reloadTimer = null; }
   win.contentView.removeChildView(tab.view);
   tab.view.webContents.close();
   tabs.splice(idx, 1);
@@ -239,30 +293,77 @@ function handleShortcut(event, input) {
 app.whenReady().then(() => {
   const ses = session.fromPartition(PARTITION);
 
+  // Read a body capped at `max` bytes. If it fits, return its bytes for
+  // mangling. If it exceeds the cap, return a ReadableStream that re-emits the
+  // buffered chunks then streams the rest unchanged — so main-process memory
+  // stays bounded to ~max and we never hand back an already-consumed Response.
+  const readCapped = async (body, max) => {
+    const reader = body.getReader();
+    const chunks = [];
+    let total = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+      if (total > max) {
+        const stream = new ReadableStream({
+          start(controller) { for (const c of chunks) controller.enqueue(c); },
+          async pull(controller) {
+            const r = await reader.read();
+            if (r.done) controller.close();
+            else controller.enqueue(r.value);
+          },
+          cancel(reason) { return reader.cancel(reason); },
+        });
+        return { stream };
+      }
+    }
+    const bytes = new Uint8Array(total);
+    let o = 0;
+    for (const c of chunks) { bytes.set(c, o); o += c.length; }
+    return { bytes };
+  };
+
   const handle = async (request) => {
-    const upstream = await net.fetch(request, { bypassCustomProtocolHandlers: true });
-    if (!state.enabled || state.intensity <= 0) return upstream;
-    // Null-body statuses (1xx, 204, 205, 304) can't be wrapped in a Response
-    // with bytes — Response constructor throws. Pass through unchanged.
-    const s = upstream.status;
-    if (s === 204 || s === 205 || s === 304 || (s >= 100 && s < 200)) return upstream;
-    const ct = upstream.headers.get('content-type') ?? '';
-    const isImage = /^image\//.test(ct);
-    const isAV = /^(audio|video)\//.test(ct);
-    if (!isImage && !isAV) return upstream;
-    // Video/audio byte mangling crashes decoders too easily; opt-in only.
-    if (isAV && !state.videoEnabled) return upstream;
-    // Cap the in-memory buffer. Anything bigger streams through unchanged
-    // — large media chunks aren't worth ballooning main process memory for.
-    const MAX_BYTES = isImage ? 12 * 1024 * 1024 : 4 * 1024 * 1024;
-    const lenHeader = upstream.headers.get('content-length');
-    if (lenHeader && parseInt(lenHeader, 10) > MAX_BYTES) return upstream;
-    const bytes = new Uint8Array(await upstream.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > MAX_BYTES) return upstream;
-    mangle(bytes, ct, state.intensity);
-    const headers = new Headers(upstream.headers);
-    headers.delete('content-length');
-    return new Response(bytes, { status: s, headers });
+    let upstream;
+    try {
+      upstream = await net.fetch(request, { bypassCustomProtocolHandlers: true });
+      if (!state.enabled || state.intensity <= 0) return upstream;
+      // Null-body statuses (1xx, 204, 205, 304) can't be wrapped in a Response
+      // with bytes — Response constructor throws. Pass through unchanged.
+      const s = upstream.status;
+      if (s === 204 || s === 205 || s === 304 || (s >= 100 && s < 200)) return upstream;
+      // content-type tokens are case-insensitive; lowercase so e.g. IMAGE/PNG
+      // is matched and so mangle()'s own startsWith dispatch stays consistent.
+      const ct = (upstream.headers.get('content-type') ?? '').toLowerCase();
+      const isImage = /^image\//.test(ct);
+      // octet-stream included so CDNs serving fragmented mp4/webm as a generic
+      // binary type still reach the (container-sniffing) AV mangler.
+      const isAV = /^(audio|video)\//.test(ct) || ct === 'application/octet-stream';
+      if (!isImage && !isAV) return upstream;
+      // Video/audio byte mangling crashes decoders too easily; opt-in only.
+      if (isAV && !state.videoEnabled) return upstream;
+      if (!upstream.body) return upstream;
+      const MAX_BYTES = isImage ? 12 * 1024 * 1024 : 4 * 1024 * 1024;
+      const lenHeader = upstream.headers.get('content-length');
+      if (lenHeader && parseInt(lenHeader, 10) > MAX_BYTES) return upstream;
+
+      const headers = new Headers(upstream.headers);
+      headers.delete('content-length'); // body is re-emitted chunked
+      const { bytes, stream } = await readCapped(upstream.body, MAX_BYTES);
+      // Over the cap: pass the original bytes through unmodified (bounded mem).
+      if (stream) return new Response(stream, { status: s, headers });
+      if (bytes.length > 0) mangle(bytes, ct, state.intensity);
+      return new Response(bytes, { status: s, headers });
+    } catch (e) {
+      if (DEBUG) console.warn('[GB] protocol handle failed:', request.url, e?.message || e);
+      // Routine network failures (DNS, reset, TLS, abort) reach here. Re-throw
+      // so Chromium shows its normal error path instead of an unhandled
+      // rejection; only pass upstream through if its body is still intact.
+      if (upstream && !upstream.bodyUsed) return upstream;
+      throw e;
+    }
   };
   ses.protocol.handle('https', handle);
   ses.protocol.handle('http', handle);
@@ -340,7 +441,7 @@ app.whenReady().then(() => {
   ipcMain.on('set-audio-glitch', (_e, v) => { state.audioGlitch = Math.max(0, Math.min(1, v)); broadcastAll(); persist(); });
   ipcMain.on('set-video-fx', (_e, v) => { state.videoFx = Math.max(0, Math.min(1, v)); broadcastAll(); persist(); });
   ipcMain.on('apply-profile', (_e, p) => {
-    Object.assign(state, p, { profile: p.name || 'custom' });
+    Object.assign(state, sanitizeProfile(p), { profile: (p && p.name) || 'custom' });
     broadcastAll();
     persist();
     chrome.webContents.send('init-state', state);
@@ -354,7 +455,7 @@ app.whenReady().then(() => {
     chrome.webContents.send('init-state', state);
   });
   ipcMain.on('relaunch', (_e, mode) => {
-    persist();
+    persistNow();
     const cpuFlag = mode === 'cpu' ? ['--cpu'] : [];
     // AppImage / portable .exe both extract to a temp dir that dies when
     // the parent process exits — so relaunching against process.execPath
@@ -374,10 +475,15 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('get-mode', () => process.argv.includes('--cpu') ? 'cpu' : 'gpu');
 
-  ipcMain.on('chrome-expanded', (_e, expanded) => {
-    chromeHeight = expanded ? CHROME_EXPANDED : CHROME_DEFAULT;
+  ipcMain.on('chrome-expanded', (_e, val) => {
+    // true -> full settings popover; a number -> exact height (e.g. the find
+    // bar only needs a little); anything else collapses back to the toolbar.
+    if (val === true) chromeHeight = CHROME_EXPANDED;
+    else if (typeof val === 'number' && val > CHROME_DEFAULT) chromeHeight = val;
+    else chromeHeight = CHROME_DEFAULT;
     layout();
   });
 });
 
+app.on('before-quit', persistNow); // flush any debounced settings write
 app.on('window-all-closed', () => app.quit());

@@ -209,6 +209,11 @@
       <input id="int" type="range" min="0" max="200" value="5">
       <span class="val" id="int-val">.005</span>
     </div>
+    <div class="pop-row" title="also byte-mangle audio/video responses (can break playback — opt-in)">
+      <label>AV</label>
+      <input id="video-en" type="checkbox">
+      <span style="flex:1; color:var(--muted); font-size:11px;">mangle media bytes</span>
+    </div>
     <div class="pop-row" title="datamosh — push old pixels along new motion">
       <label>Mosh</label>
       <span style="width:14px;flex-shrink:0;"></span>
@@ -248,14 +253,9 @@
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const PROFILES = {
-    off:        { intensity: 0, enabled: false, zalgoIntensity: 0, zalgoEnabled: false, audioGlitch: 0, cssFilter: 'none' },
-    subtle:     { intensity: 0.003, enabled: true, zalgoIntensity: 0.15, zalgoEnabled: true, audioGlitch: 0, cssFilter: 'none' },
-    heavy:      { intensity: 0.02, enabled: true, zalgoIntensity: 0.6, zalgoEnabled: true, audioGlitch: 0.1, cssFilter: 'chromatic' },
-    videodrome: { intensity: 0.04, enabled: true, zalgoIntensity: 1.0, zalgoEnabled: true, audioGlitch: 0.3, cssFilter: 'vhs' },
-    vaporwave:  { intensity: 0.005, enabled: true, zalgoIntensity: 0.2, zalgoEnabled: true, audioGlitch: 0, cssFilter: 'hue' },
-    datamosh:   { intensity: 0.06, enabled: true, zalgoIntensity: 0, zalgoEnabled: false, audioGlitch: 0.05, cssFilter: 'scan' },
-  };
+  // Profiles live in ONE place — main.js. The dropdown applies them by name
+  // (apply-profile-by-name), the same path the new-tab chips use, so the
+  // toolbar and the new-tab page can never drift (e.g. datamosh's videoFx).
 
   const COMBINING = ['̃','̌','̈','̄','̆','̕','̖','̱','̆','̅'];
   function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -269,6 +269,7 @@
 
   function applySettings(s) {
     $('enabled').checked = s.enabled;
+    $('video-en').checked = !!s.videoEnabled;
     $('video-fx').value = Math.round((s.videoFx || 0) * 100);
     $('video-fx-val').textContent = (s.videoFx || 0).toFixed(2);
     $('int').value = Math.round(s.intensity * 1000);
@@ -319,6 +320,7 @@
   gb.onFocusUrl(() => $('url').focus());
 
   $('enabled').addEventListener('change', (e) => { gb.toggleEnabled(e.target.checked); $('profile').value = 'custom'; });
+  $('video-en').addEventListener('change', (e) => { gb.toggleVideo(e.target.checked); $('profile').value = 'custom'; });
   $('video-fx').addEventListener('input', (e) => {
     const v = e.target.value / 100;
     $('video-fx-val').textContent = v.toFixed(2);
@@ -347,10 +349,9 @@
   $('filter').addEventListener('change', (e) => { gb.setCssFilter(e.target.value); $('profile').value = 'custom'; });
 
   $('profile').addEventListener('change', (e) => {
-    const name = e.target.value;
-    const p = PROFILES[name];
-    if (!p) return;
-    gb.applyProfile({ ...p, name });
+    // 'custom' is a no-op (main.js ignores unknown names); every real preset
+    // (incl. its videoFx) is applied from main.js's single source of truth.
+    gb.applyProfileByName(e.target.value);
   });
 
   // Mode pill
@@ -363,13 +364,23 @@
   // Settings popover. Chrome view is only 80px tall, so when the popover
   // opens we ask main to grow the chrome view; closing shrinks it back.
   const pop = $('pop');
+  // The chrome WebContentsView is only 80px tall, so any overlay that extends
+  // below that (settings popover, find bar) would be clipped. Grow the view to
+  // fit whichever overlays are open — popover needs the full height, the find
+  // bar only a little. Driven by both so closing one doesn't shrink the view
+  // while the other is still open.
+  function syncChromeHeight() {
+    if (pop.classList.contains('open')) gb.chromeExpanded(true);          // full popover
+    else if ($('find').classList.contains('open')) gb.chromeExpanded(96); // just the find bar
+    else gb.chromeExpanded(false);                                        // collapse to 80
+  }
   function openPop() {
     pop.classList.add('open');
-    gb.chromeExpanded(true);
+    syncChromeHeight();
   }
   function closePop() {
     pop.classList.remove('open');
-    gb.chromeExpanded(false);
+    syncChromeHeight();
   }
   $('gear').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -409,17 +420,23 @@
   $('new-tab').addEventListener('click', () => gb.tabNew());
 
   // Find bar
+  function closeFind() {
+    $('find').classList.remove('open');
+    gb.findStop();
+    syncChromeHeight();
+  }
   gb.onOpenFind(() => {
     $('find').classList.add('open');
+    syncChromeHeight();
     $('find-input').focus();
     $('find-input').select();
   });
   $('find-input').addEventListener('input', (e) => gb.find(e.target.value));
   $('find-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') gb.find(e.target.value);
-    if (e.key === 'Escape') { $('find').classList.remove('open'); gb.findStop(); }
+    if (e.key === 'Escape') closeFind();
   });
-  $('find-close').addEventListener('click', () => { $('find').classList.remove('open'); gb.findStop(); });
+  $('find-close').addEventListener('click', closeFind);
 </script>
 </body>
 </html>
