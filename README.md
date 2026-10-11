@@ -164,4 +164,7 @@ MIT — see [LICENSE](./LICENSE).
 
 *made wrong by [willbearfruits](https://github.com/willbearfruits) · 2026*
 
+Part of [Serious S.H.I.T.](https://willbearfruits.github.io/): instruments, tools and workshops made in Haifa by
+Yaniv Schonfeld (Willbear). If WRONG made your day worse in a good way, [support it on Patreon](https://www.patreon.com/Seriousshit).
+
 *Tags: glitch browser · datamosh · zalgo · electron · broken browser · art browser · creative coding · JPEG glitch · image corruption · web art · internet art*
